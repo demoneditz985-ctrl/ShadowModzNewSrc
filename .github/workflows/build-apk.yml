@@ -100,6 +100,27 @@ jobs:
             --data-binary @/tmp/comment.json \
             "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/comments"
 
+      - name: Verify the APK (what really ended up inside it)
+        if: success()
+        working-directory: ShadowModz
+        run: |
+          APK=$(ls app/build/outputs/apk/debug/*.apk | head -1)
+          SIZE=$(stat -c%s "$APK")
+          LIBS=$(unzip -l "$APK" | awk '/lib\// {printf "%s ", $4}')
+          ONDISK=$(find app/build -name 'libmasgik.so' 2>/dev/null | tr '\n' ' ')
+          SHA=$(sha256sum "$APK" | cut -d' ' -f1)
+          echo "::notice title=APK::$(basename "$APK") - $SIZE bytes - sha256 ${SHA:0:32}"
+          echo "::notice title=native libs inside the APK::${LIBS:-NONE}"
+          echo "::notice title=libmasgik.so on disk::${ONDISK:-NONE}"
+          {
+            echo "### SHADOW MODZ build"
+            echo ""
+            echo "- APK: \`$(basename "$APK")\` - $SIZE bytes"
+            echo "- sha256: \`$SHA\`"
+            echo "- native libs packaged: ${LIBS:-NONE}"
+            echo "- libmasgik.so on disk: ${ONDISK:-NONE}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Build summary
         if: always()
         working-directory: ShadowModz
@@ -128,7 +149,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: libmasgik-so
-          path: ShadowModz/app/build/intermediates/ndkBuild/**/obj/**/libmasgik.so
+          path: ShadowModz/app/build/**/libmasgik.so
           if-no-files-found: warn
           retention-days: 90
 
