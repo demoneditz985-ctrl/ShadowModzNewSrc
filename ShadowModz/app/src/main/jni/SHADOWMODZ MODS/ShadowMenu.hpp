@@ -268,7 +268,7 @@ inline bool WideBtn(const char* id, const char* label, ShadowUI::Glyph g,
                     bool primary = false, bool danger = false)
 {
     ImRect r = ShadowUI::Alloc(ShadowUI::S(42.0f));
-    if (!ShadowUI::Visible(r)) return false;
+    if (!ShadowUI::OnScreen(r)) return false;
     return ShadowUI::Btn(id, r, label, g, primary, danger);
 }
 
