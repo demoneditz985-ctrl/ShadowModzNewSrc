@@ -132,18 +132,37 @@ public class MainActivity extends Activity {
             if (Utils.getProcessID(target) <= 0)
                 return "GAME NOT RUNNING  •  OPEN FREEFIRE AND RETRY";
 
-            OnUiThread("INJECTING " + PAYLOAD_LIB + " ...");
+            // ------------------------------------------------------------
+            //  ROOT FIRST, THEN THE NO-ROOT (virtual space) PATH
+            // ------------------------------------------------------------
+            //  We only touch "su" when the device really has a su binary -
+            //  otherwise the old code "succeeded" without injecting anything.
+            //  Without root the game has to run inside the same container as
+            //  this app (virtual space / dual app), then the injector can be
+            //  started directly, with ptrace allowed by the shared uid.
+            // ------------------------------------------------------------
+            final boolean rooted = RootShell.rootAccess();
+            OnUiThread(rooted ? ("ROOT OK  •  INJECTING " + PAYLOAD_LIB + " ...")
+                              : "NO ROOT  •  TRYING VIRTUAL SPACE ...");
 
-            // root path first, then the virtual (no root) path
-            boolean ok = InjectRoot(PAYLOAD_LIB);
-            if (!ok) ok = exec.InjectRoot(PAYLOAD_LIB, this);
-            if (!ok) ok = exec.InjectVirtual(PAYLOAD_LIB, this);
+            boolean ok = false;
+            if (rooted) {
+                ok = InjectRoot(PAYLOAD_LIB);
+                if (!ok) ok = exec.InjectRoot(PAYLOAD_LIB, this);
+            }
+            if (!ok) ok = exec.InjectDirect(PAYLOAD_LIB, this);   // no root needed
+            if (!ok && rooted) ok = exec.InjectVirtual(PAYLOAD_LIB, this);
 
             if (ok) {
                 DeletedCMODs(PAYLOAD_LIB);
                 return "INJECT SUCCESS  •  " + PAYLOAD_LIB;
             }
-            return "INJECT FAILED  •  NEED ROOT (or missing injector .so)";
+
+            String why = exec.lastError;
+            if (!rooted)
+                return "NO ROOT  •  RUN THE GAME IN A VIRTUAL SPACE WITH THIS APP"
+                     + (why.isEmpty() ? "" : "  (" + why + ")");
+            return "INJECT FAILED  •  " + (why.isEmpty() ? "CHECK THE INJECTOR .so IN jniLibs" : why);
         } catch (Throwable e) {
             e.printStackTrace();
             return "INJECT FAILED  •  " + e.getClass().getSimpleName();
@@ -175,6 +194,12 @@ public class MainActivity extends Activity {
     private boolean InjectRoot(String Lib) {
         try {
             String target = "com.dts.freefireth";
+            // the injector is NOT part of this source drop - say so instead of
+            // reporting a success that never injected anything
+            if (!new File(getApplicationInfo().nativeLibraryDir + File.separator + "libcatchmeifyoucan.so").exists()) {
+                exec.lastError = exec.MISSING_INJECTOR;
+                return false;
+            }
             String injector = this.getApplicationInfo().nativeLibraryDir + File.separator + "libcatchmeifyoucan.so"; // add your injector .so to jniLibs
             String payload_source = this.getApplicationInfo().nativeLibraryDir + File.separator + Lib;
             String payload_dest = "/dev/"+Lib;
@@ -190,9 +215,8 @@ public class MainActivity extends Activity {
             RootShell.su("cp " + payload_source + " " + payload_dest).exec();
             RootShell.su("chmod 777 " + payload_dest).exec();
             RootShell.su("chcon " + context + " " + payload_dest).exec();
-            while (Utils.getProcessID(target) <= 0) {}
-            Thread.sleep(1000);
-            int pid = Utils.getProcessID(target);
+            int pid = exec.waitForProcess(target, 30000L);       // bounded wait
+            if (pid <= 0) { exec.lastError = exec.GAME_NOT_FOUND; return false; }
           //  writeFile("/storage/emulated/0/getPid.txt",Integer.toString(pid));
            // Toast.makeText(this, pid, Toast.LENGTH_LONG).show();
             String command = String.format(Locale.ENGLISH,"%s %d %s", injector, pid, payload_dest);

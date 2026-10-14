@@ -1,11 +1,16 @@
 #pragma once
-// AUTO-GENERATED host-test stub of the mod globals (see shadowmodz_main.cpp)
+// AUTO-GENERATED host stub of the game globals used by ShadowMenu.hpp.
+// The X-macro field lists in SHADOWMODZ MODS/ShadowMenu.hpp are the source
+// of truth, so this stub and the real ShadowBindMenu() stay in sync.
+// Regenerate with: python3 tools/uipreview/generate_stub.py
 
-#include <string>
-#include <vector>
-#include <mutex>
+#include "imgui.h"
 
-struct HostEsp {
+// ---- nested feature configs (Config.ESP.*, Mass.*, ...) ----
+struct Struct_Config
+{
+struct Struct_Config_ESP
+{
     bool Line = false;
     bool Box = false;
     bool Box3d = false;
@@ -15,13 +20,19 @@ struct HostEsp {
     bool MAFIA = false;
     bool Distance = false;
 };
+    Struct_Config_ESP ESP;
+};
+inline Struct_Config Config;
 
-struct HostCfg { bool aimbot = false; HostEsp ESP; };
-inline HostCfg Config;
+struct Struct_Mass
+{
+    bool Sucks = false;
+    float Sucks1 = 0.0f;
+    float FrontOffset = 0.0f;
+};
+inline Struct_Mass Mass;
 
-struct HostMass { bool Sucks = false; float Sucks1 = 3.0f; float FrontOffset = 1.0f; };
-inline HostMass Mass;
-
+// ---- plain globals ----
 inline bool Enable = false;
 inline bool Aimbot = false;
 inline bool SilentAim = false;
@@ -71,7 +82,7 @@ inline bool g_FirewallVerbose = false;
 inline bool RenderWatermark = false;
 inline float Fov_Aim = 0.0f;
 inline float Aimdis = 0.0f;
-inline float AimSpeed = 0.0f;
+inline float AimSpeed = 0.50f;
 inline float AimKillFov = 0.0f;
 inline float AimKillDistance = 0.0f;
 inline float AutoKillDelayMs = 0.0f;
@@ -80,7 +91,7 @@ inline float AimLockSpeed = 0.0f;
 inline float FireRateMs = 0.0f;
 inline float ShotsPerBurst = 0.0f;
 inline float SpinBotSpeed = 0.0f;
-inline float LineThickness = 0.0f;
+inline float LineThickness = 1.5f;
 inline float BoxThickness = 0.0f;
 inline float BoxRoundness = 0.0f;
 inline float active = 0.0f;
@@ -91,14 +102,13 @@ inline int AimWhen = 0;
 inline int LineMode = 0;
 inline int BoxStyle = 0;
 inline int DONTCarValue = 0;
+inline int g_AimHeightIndex = 4;
 
-inline int g_AimHeightIndex = 4;   // matches the real project global
+// ---- harness extras ----
+inline const char* g_urlOpened = nullptr;   // records hooks.openURL()
 
-struct FW_Stats { int totalChecks=0,totalBlocked=0,totalAllowed=0,anogsBlocked=0,domainBlocked=0,portBlocked=0,privIpBlocked=0,libsHooked=0; bool hooksOk=true; };
-inline FW_Stats g_FwStats;
-struct FW_LogEntry { std::string time, libName, target, port, reason; bool isBlocked=false; };
-inline std::vector<FW_LogEntry> g_fwLogs;
-inline std::mutex g_fwLogMutex;
-inline const int FW_MAX_LOGS = 200;
-inline const char* FW_ALLOWED_DOMAIN = "lixuim.net";
-inline char g_fwAllowedIpCache[128] = "10.2.0.7";
+namespace ShadowUI
+{
+inline bool CreateLogoTexture() { return false; }   // no GL context on the host
+inline void ReleaseLogoTexture() {}
+}

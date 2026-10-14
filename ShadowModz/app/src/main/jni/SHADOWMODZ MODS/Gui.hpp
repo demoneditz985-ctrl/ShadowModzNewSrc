@@ -20,6 +20,7 @@
 #include "SHADOWMODZ MODS/firewall.h"
 
 // SHADOW MODZ UI engine (black + purple design system + floating menu)
+#include "SHADOWMODZ MODS/ShadowTouch.hpp"
 #include "SHADOWMODZ MODS/ShadowTheme.hpp"
 #include "SHADOWMODZ MODS/ShadowMenu.hpp"
 
@@ -42,8 +43,30 @@ inline void SetupImgui() {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.DisplaySize = ImVec2((float)g_GlWidth, (float)g_GlHeight);
+    io.IniFilename = nullptr;                 // never write imgui.ini on the device
     ImGui::StyleColorsDark();
     ImGui_ImplOpenGL3_Init("#version 300 es");
+
+    // ------------------------------------------------------------------
+    //  TYPOGRAPHY
+    // ------------------------------------------------------------------
+    //  The glyph atlas is rasterised at the panel resolution instead of a
+    //  fixed 26px.  On a 1080p+ phone the old atlas was upscaled and every
+    //  letter/icon came out soft.  The UI metrics use the very same scale
+    //  (ShadowUI::theme.uiScale), so text and rows stay 1:1 with the atlas.
+    //  720x1280 is the 1.0 reference, the smaller axis decides - keep this in
+    //  sync with ShadowMenu::Draw(), which scales the widget metrics.
+    float screenScale = 1.0f;
+    if (g_GlWidth > 0 && g_GlHeight > 0)
+        screenScale = ImMin((float)g_GlWidth / 720.0f, (float)g_GlHeight / 1280.0f);
+    if (screenScale < 0.75f) screenScale = 0.75f;
+    if (screenScale > 2.00f) screenScale = 2.00f;
+    const float fontSize = 26.0f * screenScale;
+
+    // the design system scales text by uiScale, so its base size stays 26 and
+    // the rasterised atlas above meets it exactly at userScale == 1.0
+    ShadowUI::theme.fontSize = 26.0f;
+
     // full FontAwesome range so every icon used by the menu is available
     static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
     ImFontConfig icons_config;
@@ -53,7 +76,6 @@ inline void SetupImgui() {
     icons_config.OversampleV = 3;
     ImFontConfig CustomFont;
     CustomFont.FontDataOwnedByAtlas = false;
-    float fontSize = 26.0f;
     io.Fonts->AddFontFromMemoryTTF(
         const_cast<std::uint8_t*>(Custom),
         sizeof(Custom),
@@ -67,10 +89,23 @@ inline void SetupImgui() {
         &icons_config,
         icons_ranges
     );
-    ImFontConfig cfg;
+    ImFontConfig cfg;                          // last-resort fallback font
     cfg.SizePixels = fontSize;
     io.Fonts->AddFontDefault(&cfg);
     ImGui::GetStyle().ScaleAllSizes(1.8f);
+
+    // ------------------------------------------------------------------
+    //  INPUT
+    // ------------------------------------------------------------------
+    //  Touch panels wobble a few pixels while a finger rests on the glass,
+    //  and two deliberate taps in a row must never be merged into one
+    //  double-click (that swallowed the second tap on the old build).
+    io.MouseDrawCursor                = false;
+    io.MouseDragThreshold             = 24.0f;
+    io.MouseDoubleClickTime           = 0.60f;
+    io.ConfigWindowsMoveFromTitleBarOnly = true;
+
+    LOGD("SHADOW MODZ: imgui ready (atlas %.0fpx)", fontSize);
 }
 
 /*

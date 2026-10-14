@@ -319,31 +319,34 @@ inline EGLBoolean hook_eglSwapBuffers(EGLDisplay dpy, EGLSurface surface) {
     }
 
     
-    static bool isTouching = false;
-    static float touchStartTime = 0.0f;
-    ImGuiIO& io = ImGui::GetIO();
+    // ------------------------------------------------------------------
+    //  TOUCH -> MOUSE
+    // ------------------------------------------------------------------
+    //  ShadowTouch owns the gesture (one finger id, click only on a clean
+    //  release, no cursor teleport when a second finger appears).
+    //  See "SHADOWMODZ MODS/ShadowTouch.hpp" for the full rationale.
+    // ------------------------------------------------------------------
+    if (Class_Input__get_touchCount && Class_Input__GetTouch)
+    {
+        const int tc = ((int (*) ()) (Class_Input__get_touchCount))();
 
-    if (Class_Input__get_touchCount && Class_Input__GetTouch) {
-        int tc = ((int (*)())(Class_Input__get_touchCount))();
-        if (tc > 0) {
-            UnityEngine_Touch_Fields touch = ((UnityEngine_Touch_Fields(*)(int))(Class_Input__GetTouch))(0);
-            float revY = io.DisplaySize.y - touch.m_Position.fields.y;
-            io.MousePos = ImVec2(touch.m_Position.fields.x, revY);
-            if (!isTouching) touchStartTime = ImGui::GetTime();
-            io.MouseDown[0] = true;
-            isTouching = true;
-        } else {
-            if (isTouching && (ImGui::GetTime() - touchStartTime < 0.06f))
-                io.MouseDown[0] = true;
-            else {
-                UpdateSpeedhack();
-                io.MouseDown[0] = false;
-                isTouching = false;
-            }
+        if (tc > 0)
+        {
+            UnityEngine_Touch_Fields touch =
+                ((UnityEngine_Touch_Fields(*)(int))(Class_Input__GetTouch))(0);
+            ShadowTouch::Update(tc, touch.m_FingerId,
+                                touch.m_Position.fields.x, touch.m_Position.fields.y,
+                                (float)g_GlHeight);
         }
+        else
+        {
+            ShadowTouch::Update(0, -1, 0.0f, 0.0f, (float)g_GlHeight);
+        }
+
+        if (ShadowTouch::st.wentUp)
+            UpdateSpeedhack();
     }
 
-    
     mainCamera = Camera_main();
 
     if (!g_MenuBound) {

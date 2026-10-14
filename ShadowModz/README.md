@@ -1,4 +1,4 @@
-# SHADOW MODZ — v4.0 PREMIUM EDITION
+# SHADOW MODZ — v5.0 PREMIUM EDITION
 
 Fully rebranded **SHADOW MODZ** floating mod menu for the source that was
 uploaded as `Shadow.zip`. Nothing about the cheat features was removed — every
@@ -24,8 +24,22 @@ launch app
         └─ GET KEY    -> opens https://t.me/+BBimnHMiSvpiYTBl
 ```
 
+```
+inject into the game
+   └─ SHADOW MODZ floating window opens ON THE KEY SCREEN
+        ├─ the whole window is just the gate: masked field + A-Z / 0-9 keypad
+        ├─ SHADOWMODZ  ──► UNLOCK ──► menu tabs appear (features are live)
+        ├─ wrong key   ──► red shake + "WRONG KEY - ASK IN THE TELEGRAM CHANNEL"
+        └─ GET KEY     ──► opens https://t.me/+BBimnHMiSvpiYTBl
+```
+
 * the gate is **not** cosmetic: `MainActivity` (the injector) re-checks the key
-  on every start and bounces you back to the login screen if it is missing
+  on every start and bounces you back to the login screen if it is missing,
+  **and** the in-game window asks for it again before any feature tab exists -
+  no tab id is even created while the menu is locked, so nothing can be poked
+  through by a stray tap
+* an accepted key is remembered (`SHA-256` token in the app's private files
+  dir), so it is asked for once per install - `SYSTEM → LOCK MENU` re-arms it
 * the key itself is never written to disk - only `SHA-256(salt + key)`
 * the login screen, the dashboard and the in-game menu all use the **round
   version of your logo** (transparent corners, purple rim + glow)
@@ -41,15 +55,28 @@ MainActivity.PAYLOAD_LIB  "libmasgik.so"
 
 Injection order used by the dashboard (INJECT & LAUNCH button):
 
-1. `InjectRoot("libmasgik.so")` - copies the payload into `/dev/` and injects it
-   (root)
-2. `exec.InjectRoot("libmasgik.so", ctx)` - root path via `/data/local/tmp/`
-3. `exec.InjectVirtual("libmasgik.so", ctx)` - no-root / virtual path
+1. `su` is only touched when the device **really** has a `su` binary
+   (`RootShell.rootAccess()`), which is why a non-rooted phone no longer looks
+   like a "successful" injection that never happened:
+   * rooted → `MainActivity.InjectRoot()` (payload `/dev/`) then
+     `exec.InjectRoot()` (payload `/data/local/tmp/`)
+2. **no root needed** → `exec.InjectDirect()`: the payload is copied into the
+   app's *own* private files dir (no `cp`/`chmod`/`chcon` through `su`), the
+   game pid is found without root and the injector is started as a plain
+   process with `ptrace` allowed by the shared uid - this is the virtual-space
+   path (game running in the same container as this app)
+3. last resort on a rooted device: `exec.InjectVirtual()` (`/dev/` payload)
+
+Every path now *verifies* instead of assuming: a missing injector, a game that
+is not running or an injector timeout comes back as a readable status line
+(`NO ROOT  •  RUN THE GAME IN A VIRTUAL SPACE WITH THIS APP`, `MISSING
+libinject.so`, ...) and the old unbounded `while (pid <= 0) {}` busy-loop is
+gone (bounded 30 s wait).
 
 > The **injector** libraries (`libcatchmeifyoucan.so`, `libinject.so`) are not
 > part of this source drop - drop your own into `app/src/main/jniLibs/<abi>/`
-> exactly like in the original source, otherwise the inject step reports
-> `INJECT FAILED  •  NEED ROOT (or missing injector .so)`.
+> exactly like in the original source. Without them the dashboard says so
+> instead of pretending to inject.
 
 ## What changed
 
@@ -59,29 +86,29 @@ rendered by a new design system written from scratch:
 
 | File | Purpose |
 |------|---------|
-| `app/src/main/jni/SHADOWMODZ MODS/ShadowTheme.hpp` | Design system: black + purple palette, 6 accent presets, style engine, primitives (glow, gradients, dotted grid, cards, chips), touch-scroll + flick physics |
-| `app/src/main/jni/SHADOWMODZ MODS/ShadowMenu.hpp`  | The floating menu itself: launcher, window, nav rail, 5 tabs, settings, presets, toasts |
+| `app/src/main/jni/SHADOWMODZ MODS/ShadowTheme.hpp` | Design system: black + purple palette, 6 accent presets, glow engine, ~40 vector glyphs, `S()` scale, layout cursor and every touch widget |
+| `app/src/main/jni/SHADOWMODZ MODS/ShadowMenu.hpp`  | The floating menu: key screen, window, header, tab bar, the five tabs, footer, launcher, toasts |
+| `app/src/main/jni/SHADOWMODZ MODS/ShadowTouch.hpp` | Finger state machine between Unity and ImGui (one finger id, no ghost taps) |
+| `app/src/main/jni/SHADOWMODZ MODS/ShadowAuth.hpp`  | SHA-256 key check, unlock token + where it is remembered |
 | `app/src/main/jni/SHADOWMODZ MODS/ShadowLogoData.h`| Embedded branding logo (generated from `IMG-20261009-WA0000.jpg`) |
 | `app/src/main/jni/shadowmodz_logo.cpp`             | Decodes the logo with stb_image → OpenGL texture (falls back to a vector "SM" mark) |
 
 New layout and behaviour:
 
-* **Draggable round launcher** with the logo, rotating dashed ring, pulsing
-  purple glow and pink status dot. Drag it anywhere; it snaps to the nearest
-  screen edge and remembers where you left it. Tap = open/close.
-* **Draggable + resizable window** (drag the header, resize from the bottom-right
-  grip). Black glass frame, purple neon edge, subtle dot grid.
-* **Scrollable nav rail** with animated active state and active-module dots.
-* **Scrollable content area** with finger-drag scrolling and flick momentum,
-  plus a purple scrollbar. Rows cancel their own tap when your finger becomes a
-  drag, so scrolling never toggles a switch by accident.
+* **Draggable round launcher** with the logo, pulsing purple ring and status
+  dot. Drag it anywhere; it snaps to the nearest screen edge and remembers where
+  you left it. Tap = open/close.
+* **Draggable window** (drag the header, clamped to the screen) sized from the
+  panel resolution: black glass frame, purple neon edge, soft outer glow.
+* **The key screen is the first thing you see** - masked field, A-Z/0-9 keypad,
+  `UNLOCK`, `GET KEY`; the tabs do not exist until the key is accepted.
+* **Tab bar + scrolling list**: AIM · ESP · CATCH · MISC · SYSTEM, section rules,
+  clip + edge fades + purple scrollbar, every tab scrolls to its last row.
 * **Custom touch widgets** designed for a phone screen, no desktop widgets:
-  * `ToggleRow` — full-width row, animated purple switch, optional icon + hint
-  * `SliderRow` / `IntSliderRow` — label, live value pill, ticked neon track
-  * `SelectRow` — tap to cycle through options (no fiddly combo boxes)
-  * `Button`, `IconButton`, `Chip`, `InfoRow`, `MeterBar`, `SectionTitle`,
-    `CardBegin/CardEnd`, `DividerText`, toast notifications
-* **Five tabs** — AIMBOT · VISUAL · MISC · NETWORK · SETTINGS
+  * `Row` — full-width row, animated purple switch, icon, optional hint
+  * `Slider` / `SliderInt` — label, live value chip, glowing track with knob
+  * `Choice` — segmented bar, tap a segment (no fiddly combo boxes)
+  * `Btn`, `Keycap`, `Meter`, `SectionLabel`, toasts
 * **Correct finger → ImGui coordinate mapping** via the same EGL swap hook, and
   the launcher is hit-tested directly so it can never steal menu clicks.
 
@@ -103,12 +130,30 @@ cheat logic can never drift apart:
   camera height, set India, guest reset, spoof name, user level spoof, auto
   revive, glider hack/infinite, bypass login 400 and the value sliders
 * Firewall with live console, traffic counters, hook status and whitelist info
-* Telegram button in the header, in the nav rail and in SETTINGS → opens
-  `https://t.me/+BBimnHMiSvpiYTBl` through `Application.OpenURL`
+* Telegram buttons in the key screen (`GET KEY`), the header (`JOIN`), the
+  footer (`JOIN`) and SYSTEM → open `https://t.me/+BBimnHMiSvpiYTBl` through
+  `Application.OpenURL`
 
-New in the UI on top of the old one: presets (3 save/load slots), accent colour
-picker, UI scale, window opacity, window size, launcher size, glow strength,
-compact rows, FPS counter, status bar and floating-button toggles.
+New on top of the older build: a 6-preset accent picker (nothing but black +
+purple in every one of them), live glow strength, UI scale, launcher toggle,
+`RESET PANEL`, `HIDE PANEL`, a status line under the window and a toast for
+every action.
+
+#### v5 "ONYX" UI kit (this build)
+
+* the previous nav rail / card layout is gone as well - the window is now a
+  **tab bar + scrolling list** design with a glowing header, a footer action bar
+  and section rules, and **every pixel is hand-drawn** (no stock ImGui items, so
+  nothing can look like the default theme)
+* **its own pointer layer**: a finger claims a widget on the press frame, keeps
+  it for the whole stroke, and a press that turns into a drag scrolls the list
+  *from the frame the finger landed on* - this is what fixed taps toggling the
+  wrong row and the panel jumping under the finger
+* **`ShadowTouch.hpp`** now owns the gesture: one finger id at a time, a finger
+  swap mid-stroke cancels the tap instead of emitting a ghost click, and a tap
+  shorter than one rendered frame is stretched to two frames so it is never lost
+* the scroll list uses a clip + edge fades + a purple scrollbar, and every tab
+  can be scrolled from the first row to the last
 
 ### 3. Full rebrand
 * Theme colour: cyan/teal → **black + purple** (`#07050B` / `#A755F7` / `#E879F9`)
@@ -289,13 +334,22 @@ ShadowModz/
 Rendered from the real headers on a desktop host
 (`docs/` folder — produced by compiling the UI against ImGui 1.89.2):
 
-| File | Tab |
-|------|-----|
-| `docs/ui_aimbot.png`   | AIMBOT |
-| `docs/ui_visual.png`   | VISUAL |
-| `docs/ui_network.png`  | NETWORK (firewall console, traffic meters) |
-| `docs/ui_settings.png` | SETTINGS (interface, accent, presets, about) |
-| `docs/ui_launcher.png` | floating launcher |
+| File | Screen |
+|------|--------|
+| `docs/ui_lock.png`     | key screen (fresh inject - features locked) |
+| `docs/ui_lockfail.png` | wrong key (red shake state) |
+| `docs/ui_aim.png`      | AIM tab |
+| `docs/ui_esp.png`      | ESP tab |
+| `docs/ui_catch.png`    | CATCH tab |
+| `docs/ui_misc.png`     | MISC tab |
+| `docs/ui_system.png`   | SYSTEM tab (accents, UI scale, access, about) |
+| `docs/ui_toast.png`    | toast notification |
+| `docs/ui_launcher.png` | floating launcher bubble |
+| `docs/ui_1080p.png`    | the same menu on a 1080×1920 panel |
+
+Regenerate them with the host harness in `tools/uipreview/` (see
+`tools/uipreview/README.md`) - the preview compiles the *real* headers against
+the bundled ImGui, so the screenshots cannot drift away from the code.
 
 ---
 

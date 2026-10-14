@@ -22,7 +22,7 @@ env:
   GRADLE_VERSION: '8.2'       # must be >= the AGP version in ShadowModz/build.gradle
   NDK_VERSION: '25.2.9519653' # r25b - ndk-build, android-21, both ABIs
   API_LEVEL: '34'
-  RELEASE_TAG: 'v4.0'         # keep in sync with versionName in app/build.gradle
+  RELEASE_TAG: 'v5.0'         # keep in sync with versionName in app/build.gradle
 
 jobs:
   apk:

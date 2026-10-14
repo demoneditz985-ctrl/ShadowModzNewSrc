@@ -1,8 +1,17 @@
 // ============================================================================
-//  SHADOW MODZ - desktop preview / smoke test harness
-//  Compiles the real ImGui 1.89.2 together with the mod's new UI headers and
-//  rasterizes the resulting draw data with a tiny software rasterizer so the
-//  menu can be verified (and screenshotted) without an Android device.
+//  SHADOW MODZ - desktop preview renderer
+// ----------------------------------------------------------------------------
+//  Compiles the real ImGui 1.89.2 + the real UI headers + the real font data
+//  and rasterizes the result with a small software rasterizer, so the menu can
+//  be inspected (and screenshotted) without an Android device.
+//
+//  Build (see tools/uipreview/README.md):
+//    g++ -std=c++17 -O1 -I tools/uipreview -I "$JNI" -I "$JNI/imgui" -I "$JNI/Icon" \
+//        -I "$JNI/SHADOWMODZ MODS" tools/uipreview/preview_main.cpp \
+//        "$JNI"/imgui/imgui.cpp "$JNI"/imgui/imgui_draw.cpp \
+//        "$JNI"/imgui/imgui_widgets.cpp "$JNI"/imgui/imgui_tables.cpp -o preview
+//    ./preview aim docs/ui_aim.ppm [WxH]
+//  scenarios: lock lockfail aim esp catch misc system launcher toast
 // ============================================================================
 
 #include "imgui.h"
@@ -10,6 +19,12 @@
 
 #include "host_stub.hpp"
 
+#include "Icon/Icon.h"
+#include "Icon/Font.h"
+#include "Icon/Iconcpp.h"
+
+#include "SHADOWMODZ MODS/ShadowTouch.hpp"
+#include "SHADOWMODZ MODS/ShadowAuth.hpp"
 #include "SHADOWMODZ MODS/ShadowTheme.hpp"
 #include "SHADOWMODZ MODS/ShadowMenu.hpp"
 
@@ -30,7 +45,7 @@ struct Canvas
 {
     int w = 0, h = 0;
     std::vector<unsigned int> px;
-    void init(int W, int H) { w = W; h = H; px.assign((size_t)W * H, 0xFF000000u); }
+    void init(int W, int H) { w = W; h = H; px.assign((size_t)W * H, 0xFF0A0A0Cu); }
     inline void blend(int x, int y, float r, float g, float b, float a)
     {
         if (x < 0 || y < 0 || x >= w || y >= h || a <= 0.0f) return;
@@ -123,8 +138,8 @@ static void Rasterize(const ImDrawData* dd, Canvas& cv)
                         SampleBilinear(u, v, tex, &talpha);
 
                         auto col = [&](unsigned int cc, int ch) { return (float)((cc >> (ch * 8)) & 0xFF) / 255.0f; };
-                        float r = wa * col(a.col, 0) + wb * col(b.col, 0) + wc * col(c.col, 0);
-                        float g = wa * col(a.col, 1) + wb * col(b.col, 1) + wc * col(c.col, 1);
+                        float r  = wa * col(a.col, 0) + wb * col(b.col, 0) + wc * col(c.col, 0);
+                        float g  = wa * col(a.col, 1) + wb * col(b.col, 1) + wc * col(c.col, 1);
                         float bl = wa * col(a.col, 2) + wb * col(b.col, 2) + wc * col(c.col, 2);
                         float al = wa * col(a.col, 3) + wb * col(b.col, 3) + wc * col(c.col, 3);
 
@@ -139,6 +154,7 @@ static void Rasterize(const ImDrawData* dd, Canvas& cv)
 static void WritePPM(const char* path, const Canvas& cv)
 {
     FILE* f = fopen(path, "wb");
+    if (!f) { printf("cannot write %s\n", path); return; }
     fprintf(f, "P6\n%d %d\n255\n", cv.w, cv.h);
     for (size_t i = 0; i < cv.px.size(); ++i)
     {
@@ -153,144 +169,165 @@ static void WritePPM(const char* path, const Canvas& cv)
 //  frame helpers
 // ---------------------------------------------------------------------------
 static ShadowMenu::Refs g_refs;
-static int  g_frames = 0;
-static bool g_crashed = false;
-
-static void RunUI()
-{
-    const ImVec2 disp = ImGui::GetIO().DisplaySize;
-    ShadowMenu::Draw(g_refs, disp.x, disp.y);
-}
+static float kW = 720.0f, kH = 1280.0f;
 
 static void Frame(float mx = -FLT_MAX, float my = -FLT_MAX, bool down = false)
 {
     ImGuiIO& io = ImGui::GetIO();
-    io.DisplaySize = ImVec2(720.0f, 1280.0f);
-    io.DeltaTime = 1.0f / 60.0f;
+    io.DisplaySize = ImVec2(kW, kH);
+    io.DeltaTime   = 1.0f / 60.0f;
     if (mx > -1e30f) io.MousePos = ImVec2(mx, my);
     io.MouseDown[0] = down;
     ImGui::NewFrame();
-    RunUI();
+    ShadowMenu::Draw(g_refs, kW, kH);
     ImGui::Render();
-    ++g_frames;
 }
 
-static void ClickAt(float x, float y)
+static void Settle(int n = 14) { for (int i = 0; i < n; ++i) Frame(); }
+
+static void TapAt(float x, float y)
 {
     Frame(x, y, false);
     Frame(x, y, true);
     Frame(x, y, false);
 }
 
+static bool TapWidget(const char* id)
+{
+    ImRect r;
+    Frame();
+    if (!ShadowUI::P::FindRect(id, r)) { printf("  (preview: '%s' not visible)\n", id); return false; }
+    TapAt(r.GetCenter().x, r.GetCenter().y);
+    return true;
+}
+
 // ---------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
-    const char* scenario = argc > 1 ? argv[1] : "aimbot";
+    const char* scenario = argc > 1 ? argv[1] : "aim";
     const char* outPath  = argc > 2 ? argv[2] : "preview.ppm";
+    if (argc > 3)
+    {
+        float w = 720.0f, h = 1280.0f;
+        if (sscanf(argv[3], "%fx%f", &w, &h) == 2 && w > 16.0f && h > 16.0f) { kW = w; kH = h; }
+    }
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
-    io.DisplaySize = ImVec2(720.0f, 1280.0f);
-    io.DeltaTime = 1.0f / 60.0f;
+    io.DisplaySize = ImVec2(kW, kH);
+    io.DeltaTime   = 1.0f / 60.0f;
     io.IniFilename = nullptr;
-    io.Fonts->AddFontDefault();
+
+    // exactly the atlas the device builds (SetupImgui in Gui.hpp)
+    ImFontConfig cf; cf.FontDataOwnedByAtlas = false;
+    io.Fonts->AddFontFromMemoryTTF(const_cast<std::uint8_t*>(Custom), sizeof(Custom), 26.0f, &cf);
+    static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
+    ImFontConfig ic; ic.MergeMode = true; ic.PixelSnapH = true; ic.OversampleH = 3; ic.OversampleV = 3;
+    io.Fonts->AddFontFromMemoryCompressedTTF(font_awesome_data, font_awesome_size, 26.0f, &ic, icons_ranges);
+    io.Fonts->Build();
 
     unsigned char* pixels = nullptr;
     int aw = 0, ah = 0;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &aw, &ah);
     g_atlas.assign(pixels, pixels + (size_t)aw * ah * 4);
     g_aw = aw; g_ah = ah;
-    io.Fonts->SetTexID((ImTextureID)1);
+    io.Fonts->SetTexID((ImTextureID)(intptr_t)1);
 
-    // same binding the mod performs in ShadowBindMenu() (shadowmodz_main.cpp)
-#define SHADOW_BIND_BOOL(name, target)   g_refs.name = &target;
-#define SHADOW_BIND_FLOAT(name, target)  g_refs.name = &target;
-#define SHADOW_BIND_INT(name, target)    g_refs.name = &target;
-    SHADOW_BOOL_FIELDS(SHADOW_BIND_BOOL)
-    SHADOW_FLOAT_FIELDS(SHADOW_BIND_FLOAT)
-    SHADOW_INT_FIELDS(SHADOW_BIND_INT)
-#undef SHADOW_BIND_BOOL
-#undef SHADOW_BIND_FLOAT
-#undef SHADOW_BIND_INT
+    ShadowUI::theme.fontSize = 26.0f;
+    ShadowUI::ApplyStyle();
 
-    // ---------------------------------------------------------------- scenario
-    std::string sc(scenario);
+#define BIND_BOOL(name, target)   g_refs.name = &target;
+#define BIND_FLOAT(name, target)  g_refs.name = &target;
+#define BIND_INT(name, target)    g_refs.name = &target;
+    SHADOW_BOOL_FIELDS(BIND_BOOL)
+    SHADOW_FLOAT_FIELDS(BIND_FLOAT)
+    SHADOW_INT_FIELDS(BIND_INT)
+#undef BIND_BOOL
+#undef BIND_FLOAT
+#undef BIND_INT
 
-    if (sc == "menu_aimbot" || sc == "menu_visual" || sc == "menu_network" || sc == "menu_settings")
+    ShadowMenu::hooks.openURL        = [](const char* u) { g_urlOpened = u; };
+    ShadowMenu::hooks.applyAimHeight = [](int) {};
+    ShadowUI::CreateLogoTexture();
+    ShadowMenu::authLoaded = true;      // never touch the device config here
+
+    const std::string sc(scenario);
+
+    if (sc == "lock" || sc == "lockfail")
     {
+        ShadowAuth::unlocked = false;
+        ShadowMenu::keyFail  = false;
+        ShadowMenu::KeyClear();
         ShadowMenu::open = true;
-        ShadowMenu::tab  = (sc == "menu_aimbot") ? 0 : (sc == "menu_visual") ? 1 : (sc == "menu_network") ? 3 : 4;
-
-        *g_refs.Enable = true; *g_refs.Aimbot = true; *g_refs.Headshot = true;
-        *g_refs.SilentAim = true; *g_refs.SilentAim = false;
-        *g_refs.AimKill1 = true; *g_refs.AimLock = true; *g_refs.AutoKill = false;
-        *g_refs.AimVisibleThread = true; *g_refs.Antidev = true;
-        *g_refs.EspBox = true; *g_refs.EspLine = true; *g_refs.EspHealth = true;
-        *g_refs.EspBones = true; *g_refs.EspDistance = true; *g_refs.EspFovCircle = true;
-        *g_refs.SpeedHack = true; *g_refs.FreeMove = true; *g_refs.NoRecoil = true;
-        *g_refs.AutoRevive = true; *g_refs.SpoofName = true;
-        *g_refs.Watermark = true;
-        ShadowMenu::SavePreset(g_refs, 0);
-
-        g_FwStats.totalChecks = 1286; g_FwStats.totalAllowed = 1102; g_FwStats.totalBlocked = 184;
-        g_FwStats.anogsBlocked = 96; g_FwStats.domainBlocked = 41; g_FwStats.portBlocked = 33;
-        g_FwStats.privIpBlocked = 14; g_FwStats.libsHooked = 4; g_FwStats.hooksOk = true;
-        const char* libs[4] = { "libanogs.so", "libunity.so", "libil2cpp.so", "libmain.so" };
-        const char* tgt[4]  = { "cloud.anogs.com", "10.0.0.4", "api.garena.com", "lixuim.net" };
-        const char* reas[4] = { "BLACKLIST domain", "Private IP range", "Port 443 blocked", "whitelisted" };
-        for (int i = 0; i < 14; ++i)
+        if (sc == "lockfail")
         {
-            FW_LogEntry e;
-            char t[32]; snprintf(t, sizeof(t), "13:%02d:%02d", 40 + i / 2, (i * 7) % 60);
-            e.time = t; e.libName = libs[i % 4]; e.target = tgt[i % 4];
-            e.port = (i % 3) ? "443" : "8080"; e.isBlocked = (i % 3) != 2; e.reason = reas[i % 4];
-            g_fwLogs.push_back(e);
-        }
-        while (g_fwLogs.size() > FW_MAX_LOGS) g_fwLogs.erase(g_fwLogs.begin());
-    }
-    else if (sc == "launcher")
-    {
-        ShadowMenu::open = false;
-        *g_refs.Enable = true; *g_refs.EspBox = true;
-    }
-
-    // settle animations
-    for (int i = 0; i < 60; ++i) Frame(360.0f, 1180.0f);
-
-    // mouse parked away from the ui for the screenshot
-    Frame(8.0f, 1264.0f);
-
-    if (getenv("DUMP"))
-    {
-        ImDrawData* dd = ImGui::GetDrawData();
-        printf("=== draw lists: %d\n", dd->CmdListsCount);
-        for (int i = 0; i < dd->CmdListsCount; ++i)
-        {
-            const ImDrawList* cl = dd->CmdLists[i];
-            printf("list %d: cmds=%d verts=%d idx=%d\n", i, cl->CmdBuffer.Size, cl->VtxBuffer.Size, cl->IdxBuffer.Size);
-            for (int c = 0; c < cl->CmdBuffer.Size; ++c)
+            ShadowMenu::KeyClear();
+            const char* wrong = "ABCDEF";
+            for (const char* p = wrong; *p; ++p)
             {
-                const ImDrawCmd* cmd = &cl->CmdBuffer[c];
-                float minx = 1e9f, maxx = -1e9f, miny = 1e9f, maxy = -1e9f;
-                for (int e = 0; e < cmd->ElemCount; ++e)
-                {
-                    const ImDrawVert& v = cl->VtxBuffer[cl->IdxBuffer[cmd->IdxOffset + e]];
-                    minx = ImMin(minx, v.pos.x); maxx = ImMax(maxx, v.pos.x);
-                    miny = ImMin(miny, v.pos.y); maxy = ImMax(maxy, v.pos.y);
-                }
-                if (c < 8)
-                    printf("   cmd %2d elems=%5d clip=(%.0f,%.0f,%.0f,%.0f) bbox=(%.0f,%.0f)-(%.0f,%.0f)\n",
-                           c, cmd->ElemCount, cmd->ClipRect.x, cmd->ClipRect.y, cmd->ClipRect.z, cmd->ClipRect.w,
-                           minx, miny, maxx, maxy);
+                int idx = (*p >= 'A' && *p <= 'Z') ? (*p - 'A') : (26 + (*p - '0'));
+                char id[16]; snprintf(id, sizeof(id), "##key%d", idx);
+                TapWidget(id);
+            }
+            TapWidget("##key_ok");
+        }
+        else
+        {
+            const char* part = "SHADO";
+            for (const char* p = part; *p; ++p)
+            {
+                int idx = *p - 'A';
+                char id[16]; snprintf(id, sizeof(id), "##key%d", idx);
+                TapWidget(id);
             }
         }
+        Settle(8);
     }
-    Canvas cv; cv.init(720, 1280);
+    else
+    {
+        // unlocked menu with a realistic mix of features on
+        ShadowAuth::unlocked = true;
+        ShadowMenu::open     = true;
+
+        *g_refs.Enable = true;
+        *g_refs.Aimbot = true;  *g_refs.Headshot = true; *g_refs.SilentAim = true;
+        *g_refs.AimLock = true; *g_refs.Antidev = true;  *g_refs.SpinBot = true;
+        *g_refs.EspBox = true;  *g_refs.EspLine = true;  *g_refs.EspHealth = true;
+        *g_refs.EspBones = true; *g_refs.EspDistance = true; *g_refs.EspFovCircle = true;
+        *g_refs.NightMode = true; *g_refs.SniperAlert = true;
+        *g_refs.SpeedHack = true; *g_refs.FreeMove = true; *g_refs.NoRecoil = true;
+        *g_refs.AutoRevive = true; *g_refs.GliderHack = true; *g_refs.ShurikenKill = true;
+        *g_refs.Watermark = true; *g_refs.FirewallOn = true;
+        *g_refs.FovAim = 120.0f; *g_refs.AimDistance = 220.0f; *g_refs.AimSpeed = 0.42f;
+        *g_refs.LineThickness = 1.6f; *g_refs.BoxThickness = 1.4f;
+        *g_refs.SpeedMultiplier = 2.4f; *g_refs.Sensitivity = 62.0f;
+        *g_refs.AimHeight = 4; *g_refs.AimWhen = 0; *g_refs.BoxStyle = 1;
+        *g_refs.LineMode = 1; *g_refs.CarYOffset = 3;
+        *g_refs.AutoKillDelay = 250.0f; *g_refs.MedkitRate = 6.0f;
+        *g_refs.MassKillRange = 24.0f; *g_refs.AimLockFov = 210.0f;
+
+        ShadowMenu::tab = (sc == "esp") ? 1 : (sc == "catch") ? 2 : (sc == "misc") ? 3 :
+                          (sc == "system") ? 4 : 0;
+        ShadowMenu::scrollY = (sc == "system") ? 0.0f : 0.0f;
+        Settle(10);
+
+        if (sc == "toast")
+        {
+            ShadowMenu::Toast("SETTINGS SAVED", ImVec4(0.29f, 0.90f, 0.54f, 1.0f), 30.0f);
+            Settle(8);
+        }
+        if (sc == "launcher")
+        {
+            TapWidget("##foot_hide");
+            Settle(20);
+        }
+    }
+
+    Canvas cv;
+    cv.init((int)kW, (int)kH);
     Rasterize(ImGui::GetDrawData(), cv);
     WritePPM(outPath, cv);
-    printf("frames=%d scenario=%s verts=%d -> %s\n", g_frames, scenario,
-           ImGui::GetDrawData() ? ImGui::GetDrawData()->TotalVtxCount : 0, outPath);
-    (void)g_crashed;
+    printf("wrote %s (%s)  %dx%d\n", outPath, scenario, cv.w, cv.h);
     return 0;
 }
