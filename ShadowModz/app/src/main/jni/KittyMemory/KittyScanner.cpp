@@ -2,6 +2,7 @@
 
 #include "KittyMemory.h"
 #include "KittyUtils.h"
+#include <cstring>
 
 using KittyMemory::ProcMap;
 

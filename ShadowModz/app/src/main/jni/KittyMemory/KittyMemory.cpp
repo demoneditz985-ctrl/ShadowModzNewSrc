@@ -6,6 +6,8 @@
 
 #include "KittyMemory.h"
 #include <map>
+#include <climits>
+#include <cstring>
 #include <android/log.h>
 
 namespace KittyMemory {

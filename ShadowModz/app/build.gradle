@@ -9,7 +9,10 @@ apply plugin: 'com.android.application'
 def shadowNdkVersion = System.getenv('SHADOWMODZ_NDK_VERSION') ?: '25.2.9519653'
 
 android {
-    namespace 'com.shadowmodz'
+    // must match package com.shadowmodz.support at the top of the Java sources,
+    // otherwise the generated R / BuildConfig land in a package those files
+    // cannot see ("package R does not exist")
+    namespace 'com.shadowmodz.support'
     compileSdk 34
     ndkVersion shadowNdkVersion
 
@@ -50,9 +53,15 @@ android {
         }
     }
 
-    // keep the payload as a real .so on disk: the injector copies it from
-    // nativeLibraryDir, so it must be extracted from the APK
-    // (also set as android:extractNativeLibs in the manifest)
+    // keep the payload as a real .so on disk: the injector copies it out of
+    // nativeLibraryDir with plain file I/O, so the .so files must be extracted
+    // from the APK at install time (this is extractNativeLibs=true, the AGP 8
+    // way of saying it)
+    packaging {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
 
     lint {
         abortOnError false

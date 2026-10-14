@@ -354,10 +354,10 @@ public class MainActivity extends Activity {
 
     public static void moveFile(String sourcePath, String destPath) {
         copyFile(sourcePath, destPath);
-        deleteFile(sourcePath);
+        deleteRecursive(sourcePath);
     }
 
-    public static void deleteFile(String path) {
+    public static void deleteRecursive(String path) {
         File file = new File(path);
 
         if (!file.exists()) return;
@@ -372,7 +372,7 @@ public class MainActivity extends Activity {
         if (fileArr != null) {
             for (File subFile : fileArr) {
                 if (subFile.isDirectory()) {
-                    deleteFile(subFile.getAbsolutePath());
+                    deleteRecursive(subFile.getAbsolutePath());
                 }
 
                 if (subFile.isFile()) {
