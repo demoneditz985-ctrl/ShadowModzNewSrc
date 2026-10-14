@@ -35,6 +35,13 @@ import java.security.MessageDigest;
  */
 public class LoginActivity extends Activity {
 
+    /**
+     * Start the gate again for a key change: the dashboard logo sends this, so
+     * tapping the logo really does open the login page (field editable, the
+     * stored key is not pre-filled).
+     */
+    public static final String EXTRA_RELOGIN = "shadowmodz_relogin";
+
     /** stored value: SHA-256( SALT + key ) - the key itself is never written down */
     private static final String SALT       = "SHADOWMODZ::v4::GATE";
     private static final String KEY_HASH   = "ee6370ffb4f3e26df4a4b4f02a74778dfc840cb1903ff312ac31f00b120ac3df";
@@ -44,11 +51,13 @@ public class LoginActivity extends Activity {
     private EditText keyField;
     private TextView status;
     private Button   verifyBtn;
+    private boolean  relogin = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
+        relogin = getIntent() != null && getIntent().getBooleanExtra(EXTRA_RELOGIN, false);
 
         ImageView logo = (ImageView) findViewById(R.id.logo);
         if (logo != null && ShadowBranding.logo() != null)
@@ -83,7 +92,12 @@ public class LoginActivity extends Activity {
         if (verifyBtn != null)
             verifyBtn.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
-                    if (isActivated(LoginActivity.this)) {
+                    // "re-enter key" mode: a typed key is always verified, even
+                    // when this device is already activated
+                    String typed = keyField == null ? "" : keyField.getText().toString().trim();
+                    if (relogin && typed.length() > 0) {
+                        verify();
+                    } else if (isActivated(LoginActivity.this)) {
                         enterDashboard();
                     } else {
                         verify();
@@ -95,6 +109,18 @@ public class LoginActivity extends Activity {
             tg.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) { openTelegram(); }
             });
+
+        if (relogin) {
+            // opened from the dashboard logo - let the user paste / type a key again
+            setStatus("ENTER YOUR KEY AGAIN  •  TAP VERIFY", 0xFFCB98FE);
+            if (verifyBtn != null) verifyBtn.setText("VERIFY KEY");
+            if (keyField != null) {
+                keyField.setText("");
+                keyField.setEnabled(true);
+                keyField.requestFocus();
+            }
+            return;
+        }
 
         // already activated in an earlier session -> straight to the button state
         if (isActivated(this)) {
@@ -126,7 +152,8 @@ public class LoginActivity extends Activity {
 
         if (constantTimeEquals(sha256(SALT + input.toUpperCase()), KEY_HASH)) {
             Prefs.with(this).write(PREF_KEY, input.toUpperCase());
-            setStatus("KEY ACCEPTED  •  WELCOME TO " + ShadowBranding.BRAND, 0xFF4ADE80);
+            setStatus((relogin ? "NEW KEY ACCEPTED  •  " : "KEY ACCEPTED  •  WELCOME TO ")
+                      + ShadowBranding.BRAND, 0xFF4ADE80);
             if (verifyBtn != null) verifyBtn.setText("ENTER");
             if (keyField != null) keyField.setEnabled(false);
             Toast.makeText(this, "ACTIVATED - JOIN THE TELEGRAM CHANNEL", Toast.LENGTH_LONG).show();
@@ -144,7 +171,11 @@ public class LoginActivity extends Activity {
     }
 
     private void enterDashboard() {
-        startActivity(new Intent(this, MainActivity.class));
+        Intent i = new Intent(this, MainActivity.class);
+        // CLEAR_TOP: arriving here from the dashboard logo leaves exactly one
+        // dashboard on the back stack, never two
+        i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(i);
         finish();
     }
 

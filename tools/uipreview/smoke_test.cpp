@@ -146,6 +146,82 @@ static void UnlockByTyping()
 }
 
 // ---------------------------------------------------------------------------
+//  boot state: what the player sees the moment the lib lands in the game
+// ---------------------------------------------------------------------------
+static void TestBootState()
+{
+    printf("\n-- boot / first frame ------------------------------------------\n");
+
+    // simulate a fresh injection: every menu global back to its initial value,
+    // exactly like a new process
+    ShadowMenu::booted      = false;
+    ShadowMenu::positioned  = false;
+    ShadowMenu::open        = false;
+    ShadowMenu::tab         = 0;
+    ShadowMenu::scrollY     = 0.0f;
+    ShadowMenu::keyFail     = false;
+    ShadowMenu::keyLen      = 0;
+    ShadowMenu::keyBuf[0]   = 0;
+    ShadowAuth::unlocked    = false;      // the gate is never carried over
+    ShadowAuth::autoAccepted = true;      // ... even if an old token exists
+    *g_refs.Enable = true;
+
+    ImGuiIO& io = ImGui::GetIO();
+    io.DisplaySize = ImVec2(kW, kH);
+    io.DeltaTime = 1.0f / 60.0f;
+    io.MouseDown[0] = false;
+    ImGui::NewFrame();
+    ShadowMenu::Draw(g_refs, kW, kH);
+    ImGui::Render();
+
+    CHECK(ShadowMenu::open, "the panel opens by itself on the first frame");
+    CHECK(!ShadowAuth::unlocked, "a remembered key from an earlier round is ignored");
+    CHECK(!ShadowAuth::autoAccepted, "the remembered-key flag is cleared at boot");
+
+    ImRect r;
+    Frame();
+    CHECK(WidgetRect("##key0", r), "the first frame shows the key screen, not the tabs");
+    CHECK(!ShadowUI::P::FindRect("##tab0", r), "no feature tab exists on the first frame");
+    CHECK(!ShadowUI::P::FindRect("aim_aimbot", r), "no feature row exists on the first frame");
+
+    // a tap on the header logo goes back to the key screen
+    ShadowAuth::unlocked = true;
+    ShadowMenu::open = true;
+    Frame();
+    CHECK(WidgetRect("##tab0", r), "unlocked: the tabs are back (for the logo test)");
+
+    ImRect logo;
+    Frame();
+    if (WidgetRect("##smdz_hdr_logo", logo))
+    {
+        TapAt(logo.GetCenter().x, logo.GetCenter().y);
+        Frame();
+        CHECK(!ShadowAuth::unlocked, "tapping the logo locks the menu again");
+        CHECK(ShadowMenu::open, "tapping the logo keeps the panel open");
+        Frame();
+        CHECK(WidgetRect("##key0", r), "tapping the logo brings the key screen back");
+        CHECK(!ShadowUI::P::FindRect("##tab0", r), "the tabs are gone while the key screen shows");
+    }
+    else
+    {
+        CHECK(false, "the header logo is a registered target");
+    }
+
+    // a drag from the logo still moves the window (it must not be swallowed)
+    ShadowAuth::unlocked = true; ShadowMenu::open = true; ShadowMenu::scrollY = 0.0f;
+    Frame();
+    WidgetRect("##smdz_hdr_logo", logo);
+    Frame();
+    float x0 = ShadowMenu::menuX, y0 = ShadowMenu::menuY;
+    DragFromTo(logo.GetCenter().x, logo.GetCenter().y, logo.GetCenter().x + 60.0f, logo.GetCenter().y + 80.0f);
+    CHECK(fabsf((ShadowMenu::menuX - x0) - 60.0f) < 8.0f && fabsf((ShadowMenu::menuY - y0) - 80.0f) < 8.0f,
+          "dragging from the logo still moves the window");
+    CHECK(ShadowAuth::unlocked, "a drag from the logo does not lock the menu");
+
+    ShadowAuth::unlocked = false;
+}
+
+// ---------------------------------------------------------------------------
 //  the login gate
 // ---------------------------------------------------------------------------
 static void TestLockGate()
@@ -153,7 +229,6 @@ static void TestLockGate()
     printf("\n-- lock screen -------------------------------------------------\n");
 
     ShadowAuth::unlocked = false;
-    ShadowMenu::authLoaded = true;
     ShadowMenu::open = true;
     ShadowMenu::scrollY = 0.0f;
     ShadowMenu::keyFail = false;
@@ -467,7 +542,7 @@ static void TestTabsAndBindings()
     ShadowMenu::tab = 4; ShadowMenu::scrollY = 0.0f; Frame(); *g_refs.Watermark = false;
     TapWidget("sys_wm"); CHECK(*g_refs.Watermark, "SYSTEM row writes its feature flag");
 
-    // sliders: drag sets the value and clamps to the range
+    // sliders: a tap leaves the value alone, a drag sets it and clamps
     ShadowMenu::tab = 0; ShadowMenu::scrollY = 0.0f; Frame();
     ImRect sl;
     if (FindByScroll("aim_fov", sl))
@@ -475,10 +550,24 @@ static void TestTabsAndBindings()
         *g_refs.FovAim = 60.0f;
         Frame();
         WidgetRect("aim_fov", sl);
+
+        // tap anywhere on the track: the value must not jump to the finger
+        TapAt(sl.Max.x - 8.0f, sl.GetCenter().y);
+        CHECK(fabsf(*g_refs.FovAim - 60.0f) < 0.01f, "tapping a slider row does not jump its value");
+
+        // a vertical drag (scrolling) must not move it either
+        DragFromTo(sl.GetCenter().x, sl.GetCenter().y, sl.GetCenter().x + 2.0f, sl.GetCenter().y - 200.0f);
+        CHECK(fabsf(*g_refs.FovAim - 60.0f) < 0.01f, "scrolling from a slider row does not move its value");
+
+        WidgetRect("aim_fov", sl);
         DragFromTo(sl.Max.x - 6.0f, sl.GetCenter().y, sl.Max.x + 500.0f, sl.GetCenter().y, 4);
         CHECK(*g_refs.FovAim >= 350.0f && *g_refs.FovAim <= 360.0f, "dragging a slider to the right hits the maximum");
+
         DragFromTo(sl.GetCenter().x, sl.GetCenter().y, sl.Min.x - 500.0f, sl.GetCenter().y, 4);
         CHECK(*g_refs.FovAim <= 1.0f, "dragging a slider to the left hits the minimum");
+
+        // and the layout setting survives a scroll sweep of the whole tab
+        ShadowUI::theme.userScale = 1.0f;
     }
     else
     {
@@ -652,11 +741,11 @@ int main()
     ShadowMenu::hooks.openURL = [](const char* u) { g_urlOpened = u; };
     ShadowMenu::hooks.applyAimHeight = [](int i) { g_lastAimHeight = i; };
     ShadowUI::CreateLogoTexture();
-    ShadowMenu::authLoaded = true;            // do not probe the device for a saved key
     *g_refs.Enable = true;
 
     printf("SHADOW MODZ - UI smoke test (ImGui %s)\n", IMGUI_VERSION);
 
+    TestBootState();
     TestLockGate();
     TestTapAccuracy();
     TestScrolling();

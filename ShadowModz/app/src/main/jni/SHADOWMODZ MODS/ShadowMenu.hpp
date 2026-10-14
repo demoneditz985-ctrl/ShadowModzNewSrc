@@ -171,7 +171,8 @@ inline int   keyLen  = 0;
 inline bool  keyFail = false;
 inline float keyFailT = 0.0f;
 inline int   keyTries = 0;
-inline bool  authLoaded = false;
+inline bool  booted     = false;   // first frame of THIS injection
+inline bool  openAtBoot = true;    // the panel opens on the key screen
 
 inline char   toastText[96] = { 0 };
 inline float  toastUntil    = 0.0f;
@@ -196,6 +197,7 @@ inline void Toast(const char* msg, ImVec4 col = ImVec4(0.29f, 0.90f, 0.54f, 1.0f
 // ---------------------------------------------------------------------------
 inline void ScrollReset();
 inline void HIDE_PANEL();
+inline void LOCK_MENU();
 inline void KeyFailTimeReset();
 
 inline void KeyPush(char c)
@@ -217,7 +219,7 @@ inline void TryUnlock()
     if (ShadowAuth::Verify(keyBuf))
     {
         ShadowAuth::unlocked = true;
-        ShadowAuth::SaveUnlock();
+        if (ShadowAuth::kRememberAcrossSessions) ShadowAuth::SaveUnlock();
         KeyClear();
         keyFail  = false;
         keyTries = 0;
@@ -491,6 +493,19 @@ inline void Header(ImDrawList* dl, Refs& R, const ImRect& r)
         ShadowUI::TextCenter(dl, c, kVersion, ShadowUI::U32(ShadowUI::pal.accentHi), 0.80f);
     }
 
+    // the branding logo is also the way back to the key screen: a clean tap
+    // locks the menu again (a drag still moves the window - the header already
+    // owns the press, so the tap is detected on the release frame)
+    {
+        ImRect logoRect(ImVec2(r.Min.x + ShadowUI::S(2.0f), r.GetCenter().y - ShadowUI::S(18.0f)),
+                        ImVec2(r.Min.x + ShadowUI::S(36.0f), r.GetCenter().y + ShadowUI::S(18.0f)));
+        ShadowUI::P::Note(ShadowUI::P::Id("##smdz_hdr_logo"), logoRect);
+        const bool tappedLogo = ShadowUI::P::st.wentUp && ShadowUI::P::st.owner == dragId &&
+                                !ShadowUI::P::st.moved && logoRect.Contains(ShadowUI::P::st.pos);
+        if (tappedLogo && ShadowAuth::unlocked) LOCK_MENU();
+        if (tappedLogo && !ShadowAuth::unlocked) Toast("ENTER YOUR ACCESS KEY", ShadowUI::pal.warn, 1.8f);
+    }
+
     // drag dots
     for (int i = 0; i < 3; ++i)
         dl->AddCircleFilled(ImVec2(r.Min.x + ShadowUI::S(7.0f), r.GetCenter().y + (i - 1) * ShadowUI::S(4.0f)),
@@ -730,7 +745,7 @@ inline void TabSystem(Refs& R)
             bool unlocked = ShadowAuth::unlocked;
             TextAt(lt.dl, "Access Key", ImVec2(row.Min.x + S(13.0f), row.GetCenter().y - TextSize("A", 0.90f).y * 0.5f),
                    U32(pal.textSoft, 0.95f), 0.90f);
-            const char* st = unlocked ? (ShadowAuth::autoAccepted ? "REMEMBERED" : "GRANTED") : "LOCKED";
+            const char* st = unlocked ? "GRANTED" : "LOCKED";
             ImRect chip(ImVec2(row.Max.x - S(122.0f), row.GetCenter().y - S(11.0f)),
                         ImVec2(row.Max.x - S(13.0f), row.GetCenter().y + S(11.0f)));
             lt.dl->AddRectFilled(chip.Min, chip.Max, U32(unlocked ? pal.ok : pal.danger, 0.18f), S(8.0f));
@@ -748,15 +763,7 @@ inline void TabSystem(Refs& R)
                 if (hooks.openURL) hooks.openURL(kTelegram);
                 Toast("OPENING TELEGRAM", pal.accentHi, 2.0f);
             }
-            if (Btn("sys_relock", b, "LOCK MENU", GLock, false, true))
-            {
-                ShadowAuth::unlocked = false;
-                ShadowAuth::autoAccepted = false;
-                KeyClear();
-                keyFail = false;
-                scrollY = 0.0f;
-                Toast("LOCKED - KEY NEEDED", pal.warn, 2.4f);
-            }
+            if (Btn("sys_relock", b, "LOCK MENU", GLock, false, true)) LOCK_MENU();
         }
     }
 
@@ -788,6 +795,19 @@ inline void TabSystem(Refs& R)
 
 inline void HIDE_PANEL() { open = false; Toast("MENU HIDDEN - TAP THE BUBBLE"); }
 
+// bring the key screen back (used by the header logo and by SYSTEM -> LOCK MENU)
+inline void LOCK_MENU()
+{
+    ShadowAuth::unlocked     = false;
+    ShadowAuth::autoAccepted = false;
+    KeyClear();
+    keyFail  = false;
+    scrollY  = 0.0f;
+    tab      = 0;
+    open     = true;
+    Toast("ACCESS KEY REQUIRED", ShadowUI::pal.warn, 2.4f);
+}
+
 // ---------------------------------------------------------------------------
 //  B O D Y
 // ---------------------------------------------------------------------------
@@ -800,11 +820,26 @@ inline void Body(Refs& R, const ImVec2& screen)
     // the lock screen and the footer would render nothing at all.
     ShadowUI::BeginLayout(dl, 0.0f, 0.0f, screen.x, 0.0f, screen.y, 0.0f);
 
-    // one time: was the key remembered from a previous session?
-    if (!authLoaded)
+    // ---- every injection starts on the key screen -------------------------
+    // The library can be loaded long after the game started, so this runs once
+    // per process: the panel opens by itself, locked, and no feature tab exists
+    // until the key is accepted.  The gate is never carried over from an
+    // earlier session (ShadowAuth::kRememberAcrossSessions).
+    if (!booted)
     {
-        authLoaded = true;
-        if (ShadowAuth::LoadUnlock()) ShadowAuth::unlocked = true;
+        booted      = true;
+        positioned  = false;      // re-centre for the panel resolution
+        KeyClear();
+        keyFail     = false;
+        keyTries    = 0;
+        scrollY     = 0.0f;
+        scrollAnim  = 0.0f;
+        tab         = 0;
+        ShadowAuth::unlocked     = false;
+        ShadowAuth::autoAccepted = false;
+        if (ShadowAuth::kRememberAcrossSessions && ShadowAuth::LoadUnlock())
+            ShadowAuth::unlocked = true;
+        open = openAtBoot;
     }
 
     if (ShadowUI::theme.showLauncher && !open) Launcher(R, screen);

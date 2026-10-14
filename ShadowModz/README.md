@@ -21,17 +21,25 @@ launch app
         │      │             Telegram channel ──► ENTER ──► injector dashboard
         │      └─ invalid ──► red status + shake + buzz
         ├─ PASTE      -> pulls the key straight from the clipboard
-        └─ GET KEY    -> opens https://t.me/+BBimnHMiSvpiYTBl
+        ├─ GET KEY    -> opens https://t.me/+BBimnHMiSvpiYTBl
+        └─ dashboard: TAP THE LOGO -> the login page opens again
+                       (field editable, a new key overwrites the stored one)
 ```
 
 ```
 inject into the game
-   └─ SHADOW MODZ floating window opens ON THE KEY SCREEN
+   └─ SHADOW MODZ floating window opens BY ITSELF, ON THE KEY SCREEN
         ├─ the whole window is just the gate: masked field + A-Z / 0-9 keypad
         ├─ SHADOWMODZ  ──► UNLOCK ──► menu tabs appear (features are live)
         ├─ wrong key   ──► red shake + "WRONG KEY - ASK IN THE TELEGRAM CHANNEL"
-        └─ GET KEY     ──► opens https://t.me/+BBimnHMiSvpiYTBl
+        ├─ GET KEY     ──► opens https://t.me/+BBimnHMiSvpiYTBl
+        └─ tap the logo in the menu header ──► back to the key screen
 ```
+
+**The key is asked for on every injection.** The gate is never carried over
+from an earlier round (`ShadowAuth::kRememberAcrossSessions = false`), so the
+first thing on screen after the library loads is always the key screen - a
+remembered token can not skip it.
 
 * the gate is **not** cosmetic: `MainActivity` (the injector) re-checks the key
   on every start and bounces you back to the login screen if it is missing,
@@ -154,6 +162,10 @@ every action.
   shorter than one rendered frame is stretched to two frames so it is never lost
 * the scroll list uses a clip + edge fades + a purple scrollbar, and every tab
   can be scrolled from the first row to the last
+* **a tap never moves a slider** - the value only follows a real horizontal
+  drag, so pressing a row (or starting a scroll on one) can not jump a setting
+* the logo in the header is also a button: a clean tap locks the menu and brings
+  the key screen back (dragging from the logo still moves the window)
 
 ### 3. Full rebrand
 * Theme colour: cyan/teal → **black + purple** (`#07050B` / `#A755F7` / `#E879F9`)

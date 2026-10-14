@@ -150,6 +150,11 @@ inline const int kKeyMax    = 24;    // typed key buffer (menu keypad)
 inline bool unlocked        = false; // the gate state the menu reads
 inline bool autoAccepted    = false; // set when a remembered key was found
 
+// The gate is deliberately NOT kept between sessions: the key screen has to
+// appear every single time the library is injected into the game.  Flip this to
+// true if a previously accepted key may skip the key screen again.
+inline const bool kRememberAcrossSessions = false;
+
 // uppercase + drop everything that is not A-Z / 0-9
 inline void Normalize(const char* in, char* out, int cap)
 {

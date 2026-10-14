@@ -790,7 +790,10 @@ inline bool Slider(const char* id, const char* label, float* value, float mn, fl
 
     const ImU32 wid = P::Id(id && id[0] ? id : label);
     P::Claim(wid, r);
-    const bool active = P::Owns(wid) && P::st.down;
+    const bool held   = P::Owns(wid) && P::st.down;
+    // only a real DRAG moves the value: a plain tap (or the first frames of a
+    // scroll) must never jump the slider to wherever the finger landed
+    const bool active = held && P::st.moved;
 
     bool changed = false;
     if (active)
@@ -805,11 +808,11 @@ inline bool Slider(const char* id, const char* label, float* value, float mn, fl
     float t = (*value - mn) / (mx - mn != 0.0f ? (mx - mn) : 1.0f);
     t = Clamp01(t);
     const float anim = Anim(wid ^ 0x77u, t);
-    const float hv   = Anim(wid ^ 0x33u, (P::Hot(wid, r) || active) ? 1.0f : 0.0f);
+    const float hv   = Anim(wid ^ 0x33u, (P::Hot(wid, r) || held) ? 1.0f : 0.0f);
 
     const float rr = S(theme.radius);
     ImVec4 fill = Mix(pal.bgRow, pal.bgRowHot, hv * 0.8f);
-    if (active) fill = Mix(fill, pal.bgRowOn, 0.7f);
+    if (held) fill = Mix(fill, pal.bgRowOn, 0.7f);
     dl->AddRectFilled(r.Min, r.Max, U32(fill, fill.w * theme.windowOpacity), rr);
     dl->AddRect(r.Min, r.Max, U32(active ? pal.accent : pal.borderSoft, active ? 0.95f : (0.40f + 0.30f * hv)), rr, 0, S(1.2f));
 

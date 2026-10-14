@@ -250,7 +250,10 @@ int main(int argc, char** argv)
     ShadowMenu::hooks.openURL        = [](const char* u) { g_urlOpened = u; };
     ShadowMenu::hooks.applyAimHeight = [](int) {};
     ShadowUI::CreateLogoTexture();
-    ShadowMenu::authLoaded = true;      // never touch the device config here
+
+    // the window is opened by the boot rule; every scenario below starts from
+    // a known state instead of relying on it
+    ShadowMenu::booted = true;
 
     const std::string sc(scenario);
 

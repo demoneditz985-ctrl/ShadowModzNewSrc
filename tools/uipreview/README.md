@@ -8,12 +8,16 @@ ships in `app/src/main/jni/imgui` — no Android device needed.
 | File | What it does |
 |------|--------------|
 | `preview_main.cpp` | renders one frame per scenario, rasterizes the ImGui draw data with a small software rasterizer and writes a PPM (this is how the `docs/ui_*.png` images are produced) |
-| `smoke_test.cpp` | drives synthetic touches (in Unity screen space) through the real UI and asserts behaviour — **94 checks** |
+| `smoke_test.cpp` | drives synthetic touches (in Unity screen space) through the real UI and asserts behaviour — **109 checks** |
 | `generate_stub.py` | regenerates `host_stub.hpp` from the X-macro field lists in `ShadowMenu.hpp` |
 | `host_stub.hpp` | auto-generated stub of the game globals (never edit by hand) |
 
 ## What the smoke test covers
 
+0. **boot / first frame** — a fresh injection opens the panel by itself on the
+   key screen (no remembered key can skip it), no tab or feature row exists yet,
+   tapping the header logo locks the menu again, and dragging from the logo still
+   moves the window without locking.
 1. **login gate** — a fresh session is locked, no feature tab exists, the keypad
    is on screen and tappable, `GET KEY` opens the Telegram channel, typing fills
    the field, backspace edits it, a wrong key raises the red failure state and
@@ -29,9 +33,9 @@ ships in `app/src/main/jni/imgui` — no Android device needed.
    `JOIN` opens Telegram, `HIDE` minimises to the launcher bubble, the bubble can
    be dragged, stays on screen and reopens the panel, `EXIT MOD` disables the mod.
 5. **tabs / bindings / widgets** — all 81 feature pointers are bound, all five
-   tabs activate, a row on every tab writes the right game global, slider drag
-   clamps to its range, the choice widget selects and notifies the mod, all six
-   accent presets apply.
+   tabs activate, a row on every tab writes the right game global, a tap on a
+   slider leaves its value alone while a drag clamps to the range, the choice
+   widget selects and notifies the mod, all six accent presets apply.
 6. **geometry** — 5 tabs × 4 UI scales × 14 scroll steps: every widget rect is
    well formed and on screen (nothing inverted, nothing pushed off the panel).
 7. **resolutions** — 640×360, 720×1280, 1080×1920, 1280×720, 1440×2560,

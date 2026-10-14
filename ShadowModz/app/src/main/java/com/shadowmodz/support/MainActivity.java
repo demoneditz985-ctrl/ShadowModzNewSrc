@@ -72,6 +72,22 @@ public class MainActivity extends Activity {
         if (logo != null && ShadowBranding.logo() != null)
             logo.setImageBitmap(ShadowBranding.logo());
 
+        // the logo opens the login page again (re-enter / change the key)
+        if (logo != null) {
+            logo.setClickable(true);
+            logo.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    Intent i = new Intent(MainActivity.this, LoginActivity.class);
+                    i.putExtra(LoginActivity.EXTRA_RELOGIN, true);
+                    startActivity(i);
+                    setStatus("LOGIN PAGE OPENED", 0xFFCB98FE);
+                }
+            });
+        }
+
+        android.widget.TextView subtitle = (android.widget.TextView) findViewById(R.id.subtitle);
+        if (subtitle != null) subtitle.setText(ShadowBranding.VERSION + "  \u2022  " + PAYLOAD_LIB);
+
         statusView = (android.widget.TextView) findViewById(R.id.status);
         actionButton = (android.widget.Button) findViewById(R.id.actionButton);
         setStatus("KEY OK  •  READY TO INJECT", 0xFF4ADE80);
