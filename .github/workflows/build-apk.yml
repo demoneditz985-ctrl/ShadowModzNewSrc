@@ -27,7 +27,9 @@ env:
 jobs:
   apk:
     name: Build APK
-    runs-on: ubuntu-latest
+    # pinned on purpose: "ubuntu-latest" migrates to Ubuntu 26 on 2026-10-19 and
+    # a runner image switch in the middle of a release is not worth the risk
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
 
     steps:
@@ -35,7 +37,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
