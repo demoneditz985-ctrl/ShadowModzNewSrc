@@ -11,6 +11,46 @@ scratch and the whole project was rebranded.
 
 ---
 
+## Activation flow
+
+```
+launch app
+   └─ LoginActivity  (activation gate)
+        ├─ paste / type the key ──► VERIFY  (SHA-256 + salt, nothing stored in clear)
+        │      ├─ valid   ──► key remembered ──► redirected to the SHADOW MODZ
+        │      │             Telegram channel ──► ENTER ──► injector dashboard
+        │      └─ invalid ──► red status + shake + buzz
+        ├─ PASTE      -> pulls the key straight from the clipboard
+        └─ GET KEY    -> opens https://t.me/+BBimnHMiSvpiYTBl
+```
+
+* the gate is **not** cosmetic: `MainActivity` (the injector) re-checks the key
+  on every start and bounces you back to the login screen if it is missing
+* the key itself is never written to disk - only `SHA-256(salt + key)`
+* the login screen, the dashboard and the in-game menu all use the **round
+  version of your logo** (transparent corners, purple rim + glow)
+
+## Published library name
+
+The native payload module was renamed so the built library is **`libmasgik.so`**:
+
+```
+jni/Android.mk            LOCAL_MODULE := libmasgik     -> lib/<abi>/libmasgik.so
+MainActivity.PAYLOAD_LIB  "libmasgik.so"
+```
+
+Injection order used by the dashboard (INJECT & LAUNCH button):
+
+1. `InjectRoot("libmasgik.so")` - copies the payload into `/dev/` and injects it
+   (root)
+2. `exec.InjectRoot("libmasgik.so", ctx)` - root path via `/data/local/tmp/`
+3. `exec.InjectVirtual("libmasgik.so", ctx)` - no-root / virtual path
+
+> The **injector** libraries (`libcatchmeifyoucan.so`, `libinject.so`) are not
+> part of this source drop - drop your own into `app/src/main/jniLibs/<abi>/`
+> exactly like in the original source, otherwise the inject step reports
+> `INJECT FAILED  •  NEED ROOT (or missing injector .so)`.
+
 ## What changed
 
 ### 1. Brand new floating menu UI (not a recolour)
@@ -77,8 +117,19 @@ compact rows, FPS counter, status bar and floating-button toggles.
 * `ADITYA SRC ON TOP` → **SHADOW MODZ** (`strings.xml`, launcher label)
 * Telegram `https://t.me/+BBimnHMiSvpiYTBl` in the menu, the launcher activity
   and this README
-* Launcher icons regenerated from your logo (all mipmap densities),
-  `assets/shadowmodz_logo.jpg` + embedded C array for the in-game logo
+* **Menu icon changed** (app + in-game): the repo logo is now used as a round
+  icon - circular crop with transparent corners, purple rim, pink inner ring and
+  a soft glow - everywhere:
+  * app launcher icon, all densities (`res/mipmap-*/ic_launcher.png`,
+    `ic_launcher_round.png`) plus a proper adaptive icon
+    (`res/mipmap-anydpi-v26/` + `ic_launcher_foreground.png`)
+  * login screen + dashboard (`res/layout/activity_login.xml`,
+    `activity_main.xml`, bitmap embedded in `ShadowBranding.java` as base64 PNG)
+  * in-game floating button and menu header
+    (`SHADOWMODZ MODS/ShadowLogoData.h` -> 168x168 RGBA PNG decoded with
+    stb_image into an OpenGL texture, see `shadowmodz_logo.cpp`)
+  * reference artwork kept in `docs/branding_icon.png` / `docs/app_icon_192.png`
+    and `app/src/main/assets/shadowmodz_logo_round*.png`
 
 ### 4. Renamed files / folders
 | Before | After |
@@ -122,8 +173,12 @@ app/src/main/AndroidManifest.xml   -> com.shadowmodz.support.MainActivity
 ```
 
 1. Open the `ShadowModz` folder as an Android project (or run
-   `./gradlew assembleRelease` from an Android Studio terminal).
-2. Install the APK, open it, grant root when the injector asks — it copies
+   `./gradlew assembleRelease` from an Android Studio terminal). I could not
+   build the APK for you - this sandbox has no JDK/Android SDK/NDK and the
+   Google/Maven download hosts are blocked, so the build must run locally.
+2. Install the APK, open it, enter the activation key (`SHADOWMODZ`), join the
+   Telegram channel when it opens, then tap **INJECT & LAUNCH** and grant root
+   when the injector asks — it copies
    `libshadowmodz.so` into `/dev/`, injects it into `com.dts.freefireth` and
    launches the game.
 
@@ -142,7 +197,13 @@ ShadowModz/
 │   ├── src/main/
 │   │   ├── AndroidManifest.xml
 │   │   ├── assets/shadowmodz_logo.jpg
-│   │   ├── java/com/shadowmodz/support/   MainActivity, Prefs, Utils, exec
+│   │   ├── java/com/shadowmodz/support/
+│   │   │   ├── LoginActivity.java          activation gate (key + telegram)
+│   │   │   ├── MainActivity.java           injector dashboard (libmasgik)
+│   │   │   ├── ShadowBranding.java         brand strings + embedded logo PNG
+│   │   │   ├── Prefs.java, Utils.java, exec.java
+│   │   ├── res/                             login/dashboard layouts, drawables,
+│   │   │                                    round icons, adaptive icon, theme
 │   │   ├── res/                            brand icons + black/purple theme
 │   │   └── jni/
 │   │       ├── shadowmodz_main.cpp        entry point, hooks, menu binding
@@ -174,5 +235,14 @@ Rendered from the real headers on a desktop host
 | `docs/ui_launcher.png` | floating launcher |
 
 ---
+
+## Notes
+
+* Keys are issued by the SHADOW MODZ team - the shipped key is `SHADOWMODZ`.
+  Change it in one place: `LoginActivity.KEY_HASH` (SHA-256 of
+  `SALT + KEY.toUpperCase()`, salt `SHADOWMODZ::v4::GATE`).
+* Not implemented on purpose: device-ID spoofing and anti-ban / anti-cheat
+  bypass hooks. Those are ban-evasion features, so they are not part of this
+  repo.
 
 **SHADOW MODZ** — Telegram: <https://t.me/+BBimnHMiSvpiYTBl>

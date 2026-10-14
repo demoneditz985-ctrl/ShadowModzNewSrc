@@ -7,4 +7,7 @@
     <color name="colorAccent">#A755F7</color>
     <color name="shadow_black">#07050B</color>
     <color name="shadow_surface">#100D18</color>
+    <color name="shadow_ok">#4ADE80</color>
+    <color name="shadow_warn">#FFC53D</color>
+    <color name="shadow_danger">#FF4D6A</color>
 </resources>

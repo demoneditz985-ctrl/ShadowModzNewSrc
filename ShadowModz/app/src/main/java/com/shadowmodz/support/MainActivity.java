@@ -41,6 +41,12 @@ import java.net.URLDecoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 public class MainActivity extends Activity {
+
+    /** payload injected into the game - built from jni/Android.mk (LOCAL_MODULE := libmasgik) */
+    public static final String PAYLOAD_LIB = "libmasgik.so";
+
+    private android.widget.TextView statusView;
+    private android.widget.Button actionButton;
     private Intent makabasa = new Intent();
 	static {
         // the native module name (Android.mk LOCAL_MODULE) must match the
@@ -49,23 +55,128 @@ public class MainActivity extends Activity {
         //System.loadLibrary("MyLibName");
     }
 
-    //To call onCreate, please refer to README.md
+    // SHADOW MODZ dashboard: unlock with a key, then inject libmasgik into the game
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // 1. activation gate - nothing works without a valid key
+        if (!LoginActivity.isActivated(this)) {
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
+            return;
+        }
+
         setContentView(R.layout.activity_main);
-        makabasa.setAction(Intent.ACTION_VIEW);
-        makabasa = getPackageManager().getLaunchIntentForPackage("com.dts.freefireth");
-        startActivity(makabasa);
-     if (InjectRoot("libshadowmodz.so")) {
-     Toast.makeText(getApplicationContext(), "INJECT SUCCESS", Toast.LENGTH_LONG).show();
-     DeletedCMODs("libshadowmodz.so");                                           
+
+        android.widget.ImageView logo = (android.widget.ImageView) findViewById(R.id.logo);
+        if (logo != null && ShadowBranding.logo() != null)
+            logo.setImageBitmap(ShadowBranding.logo());
+
+        statusView = (android.widget.TextView) findViewById(R.id.status);
+        actionButton = (android.widget.Button) findViewById(R.id.actionButton);
+        setStatus("KEY OK  •  READY TO INJECT", 0xFF4ADE80);
+
+        android.widget.TextView tg = (android.widget.TextView) findViewById(R.id.telegram);
+        if (tg != null) {
+            tg.setText("TELEGRAM  " + ShadowBranding.TELEGRAM_TEXT);
+            tg.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) { openTelegram(); }
+            });
+        }
+
+        if (actionButton != null) {
+            actionButton.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) { startInjection(); }
+            });
+        }
+    }
+
+    /** launches Free Fire, waits for its process and injects the payload */
+    private void startInjection() {
+        final String target = "com.dts.freefireth";
+        if (actionButton != null) actionButton.setEnabled(false);
+        setStatus("WAITING FOR " + target + " ...", 0xFFCB98FE);
+
+        new Thread(new Runnable() {
+            @Override public void run() {
+                final String result = doInject(target);
+                runOnUiThread(new Runnable() {
+                    @Override public void run() {
+                        if (actionButton != null) actionButton.setEnabled(true);
+                        setStatus(result, result.startsWith("INJECT")
+                                ? 0xFF4ADE80 : 0xFFFF4D6A);
+                        Toast.makeText(getApplicationContext(), result,
+                                result.startsWith("INJECT") ? Toast.LENGTH_LONG : Toast.LENGTH_LONG).show();
+                    }
+                });
             }
-        };    
+        }).start();
+    }
+
+    private String doInject(String target) {
+        try {
+            // start the game if it is not running yet
+            if (Utils.getProcessID(target) <= 0) {
+                Intent launch = getPackageManager().getLaunchIntentForPackage(target);
+                if (launch != null) {
+                    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(launch);
+                }
+            }
+
+            // wait (bounded) for the game process to appear
+            long deadline = System.currentTimeMillis() + 120000L;
+            while (Utils.getProcessID(target) <= 0 && System.currentTimeMillis() < deadline) {
+                try { Thread.sleep(1000L); } catch (InterruptedException ignored) { }
+            }
+            if (Utils.getProcessID(target) <= 0)
+                return "GAME NOT RUNNING  •  OPEN FREEFIRE AND RETRY";
+
+            OnUiThread("INJECTING " + PAYLOAD_LIB + " ...");
+
+            // root path first, then the virtual (no root) path
+            boolean ok = InjectRoot(PAYLOAD_LIB);
+            if (!ok) ok = exec.InjectRoot(PAYLOAD_LIB, this);
+            if (!ok) ok = exec.InjectVirtual(PAYLOAD_LIB, this);
+
+            if (ok) {
+                DeletedCMODs(PAYLOAD_LIB);
+                return "INJECT SUCCESS  •  " + PAYLOAD_LIB;
+            }
+            return "INJECT FAILED  •  NEED ROOT (or missing injector .so)";
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return "INJECT FAILED  •  " + e.getClass().getSimpleName();
+        }
+    }
+
+    private void OnUiThread(final String message) {
+        runOnUiThread(new Runnable() { @Override public void run() { setStatus(message, 0xFFCB98FE); } });
+    }
+
+    private void setStatus(String message, int color) {
+        if (statusView == null) return;
+        statusView.setText(message);
+        statusView.setTextColor(color);
+        statusView.setVisibility(View.VISIBLE);
+    }
+
+    private void openTelegram() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW,
+                    Uri.parse(ShadowBranding.TELEGRAM_URL));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (Exception e) {
+            Toast.makeText(this, ShadowBranding.TELEGRAM_TEXT, Toast.LENGTH_LONG).show();
+        }
+    }
+
     private boolean InjectRoot(String Lib) {
         try {
             String target = "com.dts.freefireth";
-            String injector = this.getApplicationInfo().nativeLibraryDir + File.separator + "libcatchmeifyoucan.so";
+            String injector = this.getApplicationInfo().nativeLibraryDir + File.separator + "libcatchmeifyoucan.so"; // add your injector .so to jniLibs
             String payload_source = this.getApplicationInfo().nativeLibraryDir + File.separator + Lib;
             String payload_dest = "/dev/"+Lib;
             String context = "u:object_r:system_lib_file:s0";

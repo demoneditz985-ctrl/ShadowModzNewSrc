@@ -1,3 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-
+    <!-- SHADOW MODZ - black + purple UI theme -->
+    <style name="ShadowTheme" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@color/shadow_black</item>
+        <item name="android:textColorPrimary">#E9E5F5</item>
+        <item name="android:textColorSecondary">#CFC7E6</item>
+    </style>
 </resources>

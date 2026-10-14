@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SHADOW MODZ - black base with a purple glow at the top -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#07050B" />
+        </shape>
+    </item>
+    <item android:gravity="top">
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="#4DA755F7"
+                android:centerColor="#1A5D29C7"
+                android:endColor="#0007050B"
+                android:type="linear" />
+        </shape>
+    </item>
+</layer-list>

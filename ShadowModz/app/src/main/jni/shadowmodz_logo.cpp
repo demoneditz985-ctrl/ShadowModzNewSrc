@@ -37,7 +37,7 @@ namespace ShadowUI
 
         int w = 0, h = 0, channels = 0;
         unsigned char* pixels = stbi_load_from_memory(
-            kShadowModzLogoJpeg, SHADOWMODZ_LOGO_BYTES, &w, &h, &channels, 4);
+            kShadowModzLogoPng, SHADOWMODZ_LOGO_BYTES, &w, &h, &channels, 4);
 
         if (!pixels)
         {
