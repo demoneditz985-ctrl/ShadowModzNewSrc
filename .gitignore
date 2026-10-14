@@ -1,0 +1,18 @@
+# build output
+build/
+.cxx/
+.externalNativeBuild/
+*.apk
+*.aab
+*.so
+*.o
+*.obj
+
+# preview harness artefacts
+tools/uipreview/preview
+tools/uipreview/smoke
+*.ppm
+
+# ide
+.idea/
+*.iml.bak

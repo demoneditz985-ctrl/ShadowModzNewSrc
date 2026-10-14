@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/shadow_black">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="40dp">
+
+        <ImageView
+            android:layout_width="140dp"
+            android:layout_height="140dp"
+            android:layout_marginBottom="18dp"
+            android:contentDescription="@string/app_name"
+            android:src="@mipmap/ic_launcher_round" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:letterSpacing="0.18"
+            android:text="SHADOW MODZ"
+            android:textColor="@color/colorPrimary"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:alpha="0.7"
+            android:text="PREMIUM EDITION  •  v4.0"
+            android:textColor="#CFC7E6"
+            android:textSize="13sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:gravity="center"
+            android:text="t.me/+BBimnHMiSvpiYTBl"
+            android:textColor="@color/colorSecondary"
+            android:textSize="14sp" />
+    </LinearLayout>
+</RelativeLayout>

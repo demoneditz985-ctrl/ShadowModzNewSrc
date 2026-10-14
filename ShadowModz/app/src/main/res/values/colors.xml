@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SHADOW MODZ - black + purple -->
+    <color name="colorPrimary">#A755F7</color>
+    <color name="colorPrimaryDark">#07050B</color>
+    <color name="colorSecondary">#E879F9</color>
+    <color name="colorAccent">#A755F7</color>
+    <color name="shadow_black">#07050B</color>
+    <color name="shadow_surface">#100D18</color>
+</resources>
