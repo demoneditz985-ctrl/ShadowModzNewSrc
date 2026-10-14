@@ -161,6 +161,30 @@ compact rows, FPS counter, status bar and floating-button toggles.
 
 ---
 
+## Build with GitHub Actions (no Android Studio needed)
+
+`.github/workflows/build-apk.yml` builds the APK on GitHub's runners, which do
+have the JDK, the Android SDK and the NDK. **Every push triggers a build.**
+
+1. Open the **Actions** tab -> *Build SHADOW MODZ APK* -> newest run.
+2. Download the artifact **`shadowmodz-apk`** (retained 90 days). The run also
+   uploads **`libmasgik-so`** (the payload for both ABIs), **`gradle-wrapper`**
+   (the `gradlew` files this repo cannot ship) and **`build-log`**.
+3. Or press **Run workflow** on the Actions tab; tick *create_release* to also
+   attach the APK to a GitHub Release, which gives you a permanent link like
+   `https://github.com/<user>/<repo>/releases/download/v4.0/app-debug.apk`.
+
+Pushing a tag (`git tag v4.0 && git push origin v4.0`) does the same thing: it
+builds, creates the Release and attaches the APK.
+
+Each successful run reports the sha256 of the APK and lists the native
+libraries that ended up inside it, so you can tell at a glance whether
+`libmasgik.so` really made it into the build.
+
+To change the toolchain, edit the `env:` block at the top of the workflow
+(`GRADLE_VERSION`, `NDK_VERSION`, `API_LEVEL`, `RELEASE_TAG`); the NDK version
+is handed to Gradle through `SHADOWMODZ_NDK_VERSION`.
+
 ## How to build the APK (has to run on your machine)
 
 I could not produce the APK from this workspace: it has no JDK, no Android
