@@ -694,7 +694,7 @@ inline void TabSystem(Refs& R)
     {
         // accent presets
         ImRect row = Alloc(S(46.0f));
-        if (Visible(row))
+        if (OnScreen(row))
         {
             TextAt(lt.dl, "Accent", ImVec2(row.Min.x + S(13.0f), row.Min.y + S(5.0f)), U32(pal.textSoft, 0.95f), 0.86f);
             const float gap = S(7.0f);
@@ -725,7 +725,7 @@ inline void TabSystem(Refs& R)
     SectionLabel("ACCESS", GKey);
     {
         ImRect row = Alloc(S(34.0f));
-        if (Visible(row))
+        if (OnScreen(row))
         {
             bool unlocked = ShadowAuth::unlocked;
             TextAt(lt.dl, "Access Key", ImVec2(row.Min.x + S(13.0f), row.GetCenter().y - TextSize("A", 0.90f).y * 0.5f),
@@ -740,7 +740,7 @@ inline void TabSystem(Refs& R)
     }
     {
         ImRect row = Alloc(S(42.0f)), a, b;
-        if (Visible(row))
+        if (OnScreen(row))
         {
             SplitRow(row, a, b);
             if (Btn("sys_tg", a, "TELEGRAM", GSend, true))
@@ -763,7 +763,7 @@ inline void TabSystem(Refs& R)
     SectionLabel("MENU", GSliders);
     {
         ImRect row = Alloc(S(42.0f)), a, b;
-        if (Visible(row))
+        if (OnScreen(row))
         {
             SplitRow(row, a, b);
             if (Btn("sys_reset", a, "RESET PANEL", GRight)) { positioned = false; scrollY = 0.0f; Toast("PANEL RESET"); }
@@ -774,7 +774,7 @@ inline void TabSystem(Refs& R)
     SectionLabel("ABOUT", GInfo);
     {
         ImRect row = Alloc(S(52.0f));
-        if (Visible(row))
+        if (OnScreen(row))
         {
             char about[160];
             (void)R;

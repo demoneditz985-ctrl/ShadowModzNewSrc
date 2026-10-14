@@ -669,7 +669,7 @@ inline ImRect Alloc(float h, float indent = 0.0f)
 }
 
 // the drawn position of a row (the cursor already includes the scroll offset)
-inline bool Visible(const ImRect& r) { return r.Max.y > lt.clipTop - S(2.0f) && r.Min.y < lt.clipBot + S(2.0f); }
+inline bool OnScreen(const ImRect& r) { return r.Max.y > lt.clipTop - S(2.0f) && r.Min.y < lt.clipBot + S(2.0f); }
 
 inline void Gap(float h) { lt.y += S(h); }
 inline void ContentEnd() { lt.contentH = lt.y - (lt.clipTop - lt.scrollY); }
@@ -688,7 +688,7 @@ inline void SectionLabel(const char* text, Glyph icon = GNone)
     ImDrawList* dl = lt.dl;
     if (!dl) return;
     ImRect r = Alloc(S(30.0f));
-    if (!Visible(r)) return;
+    if (!OnScreen(r)) return;
 
     float x = r.Min.x + S(4.0f);
     if (icon != GNone)
@@ -729,7 +729,7 @@ inline bool Row(const char* id, const char* label, bool* value, Glyph icon = GNo
 
     const float h = S(theme.rowHeight);
     ImRect r = Alloc(h);
-    if (!Visible(r)) return false;
+    if (!OnScreen(r)) return false;
 
     const ImU32 wid = P::Id(id && id[0] ? id : label);
     P::Claim(wid, r);
@@ -786,7 +786,7 @@ inline bool Slider(const char* id, const char* label, float* value, float mn, fl
     if (!dl || !value) return false;
 
     ImRect r = Alloc(S(theme.rowHeight + 16.0f));
-    if (!Visible(r)) return false;
+    if (!OnScreen(r)) return false;
 
     const ImU32 wid = P::Id(id && id[0] ? id : label);
     P::Claim(wid, r);
@@ -874,7 +874,7 @@ inline bool Choice(const char* id, const char* label, int* index, const char* co
     if (!dl || !index || !items || count <= 0) return false;
 
     ImRect r = Alloc(S(theme.rowHeight + 20.0f));
-    if (!Visible(r)) return false;
+    if (!OnScreen(r)) return false;
 
     if (label && label[0])
         TextAt(dl, label, ImVec2(r.Min.x + S(13.0f), r.Min.y + S(9.0f)), U32(pal.textSoft, 0.95f), 0.92f);
@@ -1000,6 +1000,7 @@ inline void Meter(const ImRect& r, float t, ImVec4 col)
 //  L O G O
 // ===========================================================================
 inline ImTextureID LogoTexture = nullptr;
+inline float       LogoAspect  = 1.0f;   // width / height, set when the texture is uploaded
 bool CreateLogoTexture();
 void ReleaseLogoTexture();
 

@@ -37,6 +37,20 @@ ships in `app/src/main/jni/imgui` — no Android device needed.
 7. **resolutions** — 640×360, 720×1280, 1080×1920, 1280×720, 1440×2560,
    2340×1080, a tiny 420×300 screen and a 0×0 frame (must be ignored, not crash).
 
+## Device translation units
+
+`tools/uipreview/device_syntax_check.sh` compiles `shadowmodz_main.cpp` and
+`shadowmodz_logo.cpp` with `-fsyntax-only` against the **real** mod headers and
+the Android stubs in `tools/uipreview/shim/`, so a mistake that would only show
+up in a 15 minute CI round trip (a missing declaration, a macro collision with
+`Class.h`, a wrong call signature) is caught in seconds. It filters out the
+stock `Class.h` / `obfuscate.h` noise that gcc produces but clang (the NDK
+compiler) does not.
+
+```sh
+tools/uipreview/device_syntax_check.sh
+```
+
 ## Build & run
 
 ```sh
