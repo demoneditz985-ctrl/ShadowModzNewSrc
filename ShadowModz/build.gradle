@@ -1,0 +1,6 @@
+// SHADOW MODZ - root build file
+// AGP 8.x needs JDK 17 (Android Studio bundles it). If you are on an older
+// Studio, lower the version below to match, e.g. 7.4.2 with Gradle 7.5.
+plugins {
+    id 'com.android.application' version '8.1.4' apply false
+}

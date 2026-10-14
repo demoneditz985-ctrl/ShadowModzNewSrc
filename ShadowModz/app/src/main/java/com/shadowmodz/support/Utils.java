@@ -3,7 +3,6 @@ package com.shadowmodz.support;
 import android.content.Context;
 import android.util.Base64;
 
-import com.topjohnwu.superuser.Shell;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,18 +27,18 @@ class Utils {
     	public static int getProcessID(String pkg) {
  
         int pid = -1;
-        if (Shell.rootAccess()) {
+        if (RootShell.rootAccess()) {
             String cmd = "for p in /proc/[0-9]*; do [[ $(<$p/cmdline) = " + pkg + " ]] && echo ${p##*/}; done";
             List<String> outs = new ArrayList<>();
-            Shell.su(cmd).to(outs).exec();
+            RootShell.su(cmd).to(outs).exec();
             if (outs.size() > 0) {
                 pid = Integer.parseInt(outs.get(0));
             }
         } else {
-            Shell.Result out = Shell.sh("/system/bin/ps -A | grep \"" + pkg + "\"").exec();
+            RootShell.Result out = RootShell.sh("/system/bin/ps -A | grep \"" + pkg + "\"").exec();
             List<String> output = out.getOut();
             if (output.isEmpty() || output.get(0).contains("bad pid")) {
-                out = Shell.sh("/system/bin/ps | grep \"" + pkg + "\"").exec();
+                out = RootShell.sh("/system/bin/ps | grep \"" + pkg + "\"").exec();
                 output = out.getOut();
                 if (!output.isEmpty() && !output.get(0).contains("bad pid")) {
                     for (int i = 0; i < output.size(); i++) {
