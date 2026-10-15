@@ -17,7 +17,7 @@ import android.util.Base64;
 public final class ShadowBranding {
 
     public static final String BRAND  = "SHADOW MODZ";
-    public static final String VERSION = "v5.1 PREMIUM EDITION";
+    public static final String VERSION = "v5.2 PREMIUM EDITION";
     public static final String TELEGRAM_URL  = "https://t.me/+BBimnHMiSvpiYTBl";
     public static final String TELEGRAM_TEXT = "t.me/+BBimnHMiSvpiYTBl";
 

@@ -110,6 +110,12 @@ public class LoginActivity extends Activity {
                 @Override public void onClick(View v) { openTelegram(); }
             });
 
+        // long press anywhere on the key field pastes as well
+        if (keyField != null)
+            keyField.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override public boolean onLongClick(View v) { pasteFromClipboard(); return true; }
+            });
+
         if (relogin) {
             // opened from the dashboard logo - let the user paste / type a key again
             setStatus("ENTER YOUR KEY AGAIN  •  TAP VERIFY", 0xFFCB98FE);
@@ -142,7 +148,9 @@ public class LoginActivity extends Activity {
     }
 
     private void verify() {
-        String input = keyField == null ? "" : keyField.getText().toString().trim();
+        // the typed text goes through the same clean-up as a paste, so spaces,
+        // dashes and lower case can not make a correct key fail
+        String input = normalizeKey(keyField == null ? "" : keyField.getText().toString());
         hideKeyboard();
 
         if (input.length() == 0) {
@@ -150,8 +158,8 @@ public class LoginActivity extends Activity {
             return;
         }
 
-        if (constantTimeEquals(sha256(SALT + input.toUpperCase()), KEY_HASH)) {
-            Prefs.with(this).write(PREF_KEY, input.toUpperCase());
+        if (constantTimeEquals(sha256(SALT + input), KEY_HASH)) {
+            Prefs.with(this).write(PREF_KEY, input);
             setStatus((relogin ? "NEW KEY ACCEPTED  •  " : "KEY ACCEPTED  •  WELCOME TO ")
                       + ShadowBranding.BRAND, 0xFF4ADE80);
             if (verifyBtn != null) verifyBtn.setText("ENTER");
@@ -212,23 +220,62 @@ public class LoginActivity extends Activity {
         } catch (Throwable ignored) { }
     }
 
+    /**
+     * PASTE button: takes whatever is on the clipboard and keeps only the key.
+     *
+     * People copy "SHADOWMODZ", "@ShadowModz_Bot SHADOWMODZ", a whole Telegram
+     * message or a key with spaces/dashes in it - all of those end up as the
+     * clean key here, so the button always does something useful.
+     */
     private void pasteFromClipboard() {
+        String raw = null;
         try {
             ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-            CharSequence clip = "";
-            if (cm != null && cm.hasPrimaryClip() && cm.getPrimaryClip() != null) {
-                ClipData.Item item = cm.getPrimaryClip().getItemAt(0);
-                if (item != null && item.getText() != null) clip = item.getText();
-            }
-            if (clip != null && clip.length() > 0) {
-                if (keyField != null) keyField.setText(clip.toString().trim());
-                setStatus("KEY PASTED  •  TAP VERIFY", 0xFFCB98FE);
-            } else {
-                setStatus("CLIPBOARD IS EMPTY", 0xFFFFC53D);
+            if (cm != null && cm.hasPrimaryClip()) {
+                ClipData clip = cm.getPrimaryClip();
+                if (clip != null) {
+                    for (int i = 0; i < clip.getItemCount() && raw == null; i++) {
+                        ClipData.Item item = clip.getItemAt(i);
+                        if (item == null) continue;
+                        CharSequence cs = item.coerceToText(this);
+                        if (cs != null && cs.length() > 0) raw = cs.toString();
+                    }
+                }
             }
         } catch (Throwable t) {
-            setStatus("PASTE FAILED - TYPE THE KEY MANUALLY", 0xFFFFC53D);
+            raw = null;
         }
+
+        if (raw == null || raw.trim().length() == 0) {
+            setStatus("CLIPBOARD IS EMPTY  •  COPY YOUR KEY FIRST", 0xFFFFC53D);
+            return;
+        }
+
+        String key = normalizeKey(raw);
+        if (key.length() == 0) {
+            setStatus("NO KEY IN THE CLIPBOARD TEXT", 0xFFFFC53D);
+            return;
+        }
+
+        if (keyField != null) {
+            keyField.setEnabled(true);
+            keyField.setText(key);
+            keyField.setSelection(key.length());
+            keyField.requestFocus();
+        }
+        if (verifyBtn != null) verifyBtn.setText(isActivated(this) && !relogin ? "ENTER" : "VERIFY KEY");
+        setStatus("KEY PASTED  •  TAP VERIFY", 0xFFCB98FE);
+    }
+
+    /** A-Z / 0-9 only, upper case - the same rule the native keypad uses */
+    private static String normalizeKey(String raw) {
+        if (raw == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < raw.length() && sb.length() < 32; i++) {
+            char c = Character.toUpperCase(raw.charAt(i));
+            if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) sb.append(c);
+        }
+        return sb.toString();
     }
 
     /** opens the SHADOW MODZ Telegram channel (falls back to the clipboard) */

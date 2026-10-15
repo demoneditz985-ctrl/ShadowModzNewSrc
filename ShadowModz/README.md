@@ -54,11 +54,21 @@ remembered token can not skip it.
 
 ## Published library name
 
-The native payload module was renamed so the built library is **`libmasgik.so`**:
+The native mod menu library is **`libshadowmodz.so`**:
 
 ```
-jni/Android.mk            LOCAL_MODULE := libmasgik     -> lib/<abi>/libmasgik.so
-MainActivity.PAYLOAD_LIB  "libmasgik.so"
+jni/Android.mk            LOCAL_MODULE := libshadowmodz -> lib/<abi>/libshadowmodz.so
+MainActivity.PAYLOAD_LIB  "libshadowmodz.so"
+```
+
+(An earlier build called it `libmasgik.so`; the name is now consistent with the
+app, and both sides read it from one constant.)
+
+Old naming block, kept for reference:
+
+```
+jni/Android.mk            LOCAL_MODULE := libshadowmodz -> lib/<abi>/libshadowmodz.so
+MainActivity.PAYLOAD_LIB  "libshadowmodz.so"
 ```
 
 Injection order used by the dashboard (INJECT & LAUNCH button):
@@ -85,7 +95,7 @@ gone (bounded 30 s wait).
 
 The **injector** is not part of this source drop (and is not built from it).
 The app does not hardcode a file name any more - it uses whatever `.so` was
-packaged next to `libmasgik.so`:
+packaged next to `libshadowmodz.so`:
 
 ```sh
 cp your_injector.so ShadowModz/app/src/main/jniLibs/arm64-v8a/libinject.so
@@ -107,7 +117,7 @@ Discovery order at runtime (`exec.FindInjector`):
 4. any other `*.so` whose name contains `inject` or `catch`
 
 Calling convention stays the original one: `injector <pid> <payload_path>`,
-payload `libmasgik.so` in the app's own private dir (no `su` for the no-root
+payload `libshadowmodz.so` in the app's own private dir (no `su` for the no-root
 path) or `/dev/` / `/data/local/tmp/` on the root paths. Without any injector
 the dashboard says `NO INJECTOR .so IN jniLibs - ADD AN INJECTOR .so TO jniLibs/`
 instead of pretending to inject.
@@ -251,7 +261,7 @@ have the JDK, the Android SDK and the NDK. **Every push triggers a build.**
 
 1. Open the **Actions** tab -> *Build SHADOW MODZ APK* -> newest run.
 2. Download the artifact **`shadowmodz-apk`** (retained 90 days). The run also
-   uploads **`libmasgik-so`** (the payload for both ABIs), **`gradle-wrapper`**
+   uploads **`libshadowmodz-so`** (the mod menu lib for both ABIs), **`gradle-wrapper`**
    (the `gradlew` files this repo cannot ship) and **`build-log`**.
 3. Or press **Run workflow** on the Actions tab; tick *create_release* to also
    attach the APK to a GitHub Release, which gives you a permanent link like
@@ -262,7 +272,7 @@ builds, creates the Release and attaches the APK.
 
 Each successful run reports the sha256 of the APK and lists the native
 libraries that ended up inside it, so you can tell at a glance whether
-`libmasgik.so` really made it into the build.
+`libshadowmodz.so` really made it into the build.
 
 To change the toolchain, edit the `env:` block at the top of the workflow
 (`GRADLE_VERSION`, `NDK_VERSION`, `API_LEVEL`, `RELEASE_TAG`); the NDK version
@@ -308,7 +318,7 @@ gradle wrapper        # creates ./gradlew - the wrapper jar is not committed
 ### What gets built
 
 ```
-app/src/main/jni        -> libmasgik.so   (LOCAL_MODULE := libmasgik, arm64-v8a + armeabi-v7a)
+app/src/main/jni        -> libshadowmodz.so   (LOCAL_MODULE := libshadowmodz, arm64-v8a + armeabi-v7a)
 app/src/main/java       -> com.shadowmodz.support.*  (LoginActivity, MainActivity, RootShell, ...)
 app/build/outputs/apk   -> app-debug.apk / app-release.apk
 ```
@@ -326,7 +336,7 @@ app/build/outputs/apk   -> app-debug.apk / app-release.apk
 
 Then install the APK, open it, enter the activation key (`SHADOWMODZ`), join the
 Telegram channel, tap **INJECT & LAUNCH** and grant root when the injector asks:
-it copies `libmasgik.so` to `/dev/` and injects it into `com.dts.freefireth`.
+it copies `libshadowmodz.so` to `/dev/` and injects it into `com.dts.freefireth`.
 
 > The app injects into Free Fire and needs root (as in the original source).
 > Use it with an account you can afford to lose.
@@ -345,7 +355,7 @@ ShadowModz/
 │   │   ├── assets/shadowmodz_logo.jpg
 │   │   ├── java/com/shadowmodz/support/
 │   │   │   ├── LoginActivity.java          activation gate (key + telegram)
-│   │   │   ├── MainActivity.java           injector dashboard (libmasgik)
+│   │   │   ├── MainActivity.java           injector dashboard (libshadowmodz)
 │   │   │   ├── ShadowBranding.java         brand strings + embedded logo PNG
 │   │   │   ├── Prefs.java, Utils.java, exec.java
 │   │   ├── res/                             login/dashboard layouts, drawables,

@@ -43,7 +43,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:alpha="0.7"
-            android:text="v5.1 PREMIUM EDITION  •  DEFAULT.CFG"
+            android:text="v5.2 PREMIUM EDITION  •  DEFAULT.CFG"
             android:textColor="#CFC7E6"
             android:textSize="11sp" />
 
@@ -95,7 +95,7 @@
             android:layout_marginTop="16dp"
             android:alpha="0.65"
             android:gravity="center"
-            android:text="root: /dev/libmasgik.so  •  payload libmasgik.so&#10;no-root: virtual inject via libinject.so"
+            android:text="mod menu lib: libshadowmodz.so&#10;root: /dev/  •  no-root: virtual space (libinject.so)"
             android:textColor="#9A93B5"
             android:textSize="11sp" />
 

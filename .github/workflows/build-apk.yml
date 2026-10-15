@@ -2,7 +2,7 @@ name: Build SHADOW MODZ APK
 
 # GitHub runners have the full JDK + Android SDK + NDK, which is exactly what
 # the authoring sandbox is missing. Every push builds a fresh, installable APK
-# plus libmasgik.so for both ABIs.
+# plus libshadowmodz.so for both ABIs.
 on:
   push:
     branches: ['**']
@@ -22,7 +22,7 @@ env:
   GRADLE_VERSION: '8.2'       # must be >= the AGP version in ShadowModz/build.gradle
   NDK_VERSION: '25.2.9519653' # r25b - ndk-build, android-21, both ABIs
   API_LEVEL: '34'
-  RELEASE_TAG: 'v5.1'         # keep in sync with versionName in app/build.gradle
+  RELEASE_TAG: 'v5.2'         # keep in sync with versionName in app/build.gradle
 
 jobs:
   apk:
@@ -109,25 +109,31 @@ jobs:
           APK=$(ls app/build/outputs/apk/debug/*.apk | head -1)
           SIZE=$(stat -c%s "$APK")
           LIBS=$(unzip -l "$APK" | awk '/lib\// {printf "%s ", $4}')
-          ONDISK=$(find app/build -name 'libmasgik.so' 2>/dev/null | tr '\n' ' ')
+          ONDISK=$(find app/build -name 'libshadowmodz.so' 2>/dev/null | tr '\n' ' ')
           JNILIBS=$(find app/src/main/jniLibs -name '*.so' 2>/dev/null | tr '\n' ' ')
           echo "jniLibs shipped with this build: ${JNILIBS:-NONE}"
           if [ -z "$JNILIBS" ]; then
-            echo "::warning title=no injector in jniLibs::the APK contains only libmasgik.so - drop your injector .so into app/src/main/jniLibs/<abi>/ and 'git add -f' it"
+            echo "::warning title=no injector in jniLibs::the APK contains only libshadowmodz.so - drop your injector .so into app/src/main/jniLibs/<abi>/ and 'git add -f' it"
           fi
           SHA=$(sha256sum "$APK" | cut -d' ' -f1)
           echo "APK_NAME=$(basename "$APK")" >> "$GITHUB_ENV"
           echo "APK_SHA=$SHA" >> "$GITHUB_ENV"
           echo "::notice title=APK::$(basename "$APK") - $SIZE bytes - sha256 ${SHA:0:32}"
           echo "::notice title=native libs inside the APK::${LIBS:-NONE}"
-          echo "::notice title=libmasgik.so on disk::${ONDISK:-NONE}"
+          for ABI in arm64-v8a armeabi-v7a; do
+            case "$LIBS" in
+              *"lib/$ABI/libshadowmodz.so"*) echo "ok: lib/$ABI/libshadowmodz.so packaged" ;;
+              *) echo "::error title=missing mod menu lib::lib/$ABI/libshadowmodz.so is not inside the APK"; exit 1 ;;
+            esac
+          done
+          echo "::notice title=libshadowmodz.so on disk::${ONDISK:-NONE}"
           {
             echo "### SHADOW MODZ build"
             echo ""
             echo "- APK: \`$(basename "$APK")\` - $SIZE bytes"
             echo "- sha256: \`$SHA\`"
             echo "- native libs packaged: ${LIBS:-NONE}"
-            echo "- libmasgik.so on disk: ${ONDISK:-NONE}"
+            echo "- libshadowmodz.so on disk: ${ONDISK:-NONE}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build summary
@@ -143,7 +149,7 @@ jobs:
               echo 'no APK produced'
             fi
             echo
-            find app/build/intermediates -name 'libmasgik.so' -printf '%p  %k KB\n' 2>/dev/null || true
+            find app/build/intermediates -name 'libshadowmodz.so' -printf '%p  %k KB\n' 2>/dev/null || true
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload APK
@@ -157,8 +163,8 @@ jobs:
       - name: Upload the payload .so files (both ABIs)
         uses: actions/upload-artifact@v4
         with:
-          name: libmasgik-so
-          path: ShadowModz/app/build/**/libmasgik.so
+          name: libshadowmodz-so
+          path: ShadowModz/app/build/**/libshadowmodz.so
           if-no-files-found: warn
           retention-days: 90
 
@@ -193,7 +199,7 @@ jobs:
 
           - **Activation key:** \`SHADOWMODZ\`
           - **File:** \`$APK_NAME\` — sha256 \`$APK_SHA\`
-          - **Native payload inside:** libmasgik.so for arm64-v8a and armeabi-v7a
+          - **Mod menu lib inside:** libshadowmodz.so for arm64-v8a and armeabi-v7a
           - **Needs root** for the injection path; the login gate and dashboard run without it
 
           The injector libraries (\`libcatchmeifyoucan.so\` / \`libinject.so\`) were not part

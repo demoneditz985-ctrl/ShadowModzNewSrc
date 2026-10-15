@@ -10,9 +10,9 @@ include $(PREBUILT_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 
-# payload injected into the game: produces lib/lib<abi>/libmasgik.so
+# payload injected into the game: produces lib/<abi>/libshadowmodz.so
 # (MainActivity.PAYLOAD_LIB must stay in sync with this name)
-LOCAL_MODULE           := libmasgik
+LOCAL_MODULE           := libshadowmodz
 
 LOCAL_CFLAGS           := -Wno-error=format-security -fvisibility=hidden -ffunction-sections -fdata-sections -w
 LOCAL_CFLAGS           += -fno-rtti -fno-exceptions -fpermissive

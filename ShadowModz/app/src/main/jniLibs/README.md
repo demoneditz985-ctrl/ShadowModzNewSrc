@@ -13,6 +13,6 @@ They are **not part of the SHADOW MODZ source drop** - the original project
 shipped them as prebuilt binaries, so add your own copies exactly like in the
 original build.
 
-The injected **payload** (`libmasgik.so`) is built by this project from
-`app/src/main/jni` (`LOCAL_MODULE := libmasgik`) and lands in the APK
+The injected **mod menu library** (`libshadowmodz.so`) is built by this project from
+`app/src/main/jni` (`LOCAL_MODULE := libshadowmodz`) and lands in the APK
 automatically - do not put it here.

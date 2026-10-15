@@ -41,8 +41,9 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 public class MainActivity extends Activity {
 
-    /** payload injected into the game - built from jni/Android.mk (LOCAL_MODULE := libmasgik) */
-    public static final String PAYLOAD_LIB = "libmasgik.so";
+    /** mod menu library injected into the game - built from jni/Android.mk
+     *  (LOCAL_MODULE := libshadowmodz -> lib/<abi>/libshadowmodz.so) */
+    public static final String PAYLOAD_LIB = "libshadowmodz.so";
 
     private android.widget.TextView statusView;
     private android.widget.Button actionButton;
@@ -54,7 +55,7 @@ public class MainActivity extends Activity {
         //System.loadLibrary("MyLibName");
     }
 
-    // SHADOW MODZ dashboard: unlock with a key, then inject libmasgik into the game
+    // SHADOW MODZ dashboard: unlock with a key, then inject libshadowmodz into the game
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -90,7 +91,13 @@ public class MainActivity extends Activity {
 
         statusView = (android.widget.TextView) findViewById(R.id.status);
         actionButton = (android.widget.Button) findViewById(R.id.actionButton);
-        setStatus("KEY OK  •  READY TO INJECT", 0xFF4ADE80);
+
+        // the mod menu library ships inside this APK - say so on the dashboard
+        // so a build without it can not look "ready"
+        if (payloadPath() == null)
+            setStatus("MOD MENU LIB MISSING  •  " + PAYLOAD_LIB, 0xFFFF4D6A);
+        else
+            setStatus("KEY OK  •  " + PAYLOAD_LIB + " LOADED  •  READY TO INJECT", 0xFF4ADE80);
 
         android.widget.TextView tg = (android.widget.TextView) findViewById(R.id.telegram);
         if (tg != null) {
@@ -104,6 +111,16 @@ public class MainActivity extends Activity {
             actionButton.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) { startInjection(); }
             });
+        }
+    }
+
+    /** absolute path of the mod menu library inside this APK, or null if missing */
+    private String payloadPath() {
+        try {
+            File f = new File(getApplicationInfo().nativeLibraryDir, PAYLOAD_LIB);
+            return f.isFile() ? f.getAbsolutePath() : null;
+        } catch (Throwable t) {
+            return null;
         }
     }
 
@@ -131,6 +148,9 @@ public class MainActivity extends Activity {
 
     private String doInject(String target) {
         try {
+            if (payloadPath() == null)
+                return "MOD MENU LIB MISSING  •  " + PAYLOAD_LIB + "  •  REBUILD THE APK";
+
             // start the game if it is not running yet
             if (Utils.getProcessID(target) <= 0) {
                 Intent launch = getPackageManager().getLaunchIntentForPackage(target);
@@ -171,7 +191,7 @@ public class MainActivity extends Activity {
 
             if (ok) {
                 DeletedCMODs(PAYLOAD_LIB);
-                return "INJECT SUCCESS  •  " + PAYLOAD_LIB;
+                return "MOD MENU LOADED  •  " + PAYLOAD_LIB + "  •  ENTER THE KEY IN GAME";
             }
 
             String why = exec.lastError;

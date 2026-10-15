@@ -3,7 +3,7 @@
 //  manifest, which AGP 8 rejects)
 apply plugin: 'com.android.application'
 
-// NDK used for ndk-build (libmasgik.so). Keep this in sync with the NDK the CI
+// NDK used for ndk-build (libshadowmodz.so). Keep this in sync with the NDK the CI
 // workflow installs - it can be overridden without editing this file, e.g.
 //   SHADOWMODZ_NDK_VERSION=26.1.10909125 ./gradlew assembleDebug
 def shadowNdkVersion = System.getenv('SHADOWMODZ_NDK_VERSION') ?: '25.2.9519653'
@@ -20,8 +20,8 @@ android {
         applicationId "com.shadowmodz"
         minSdk 21                 // matches Application.mk APP_PLATFORM := android-21
         targetSdk 33
-        versionCode 6
-        versionName "5.1"
+        versionCode 7
+        versionName "5.2"
 
         ndk {
             abiFilters 'armeabi-v7a', 'arm64-v8a'
