@@ -81,10 +81,36 @@ is not running or an injector timeout comes back as a readable status line
 libinject.so`, ...) and the old unbounded `while (pid <= 0) {}` busy-loop is
 gone (bounded 30 s wait).
 
-> The **injector** libraries (`libcatchmeifyoucan.so`, `libinject.so`) are not
-> part of this source drop - drop your own into `app/src/main/jniLibs/<abi>/`
-> exactly like in the original source. Without them the dashboard says so
-> instead of pretending to inject.
+### Bring your own injector library
+
+The **injector** is not part of this source drop (and is not built from it).
+The app does not hardcode a file name any more - it uses whatever `.so` was
+packaged next to `libmasgik.so`:
+
+```sh
+cp your_injector.so ShadowModz/app/src/main/jniLibs/arm64-v8a/libinject.so
+cp your_injector.so ShadowModz/app/src/main/jniLibs/armeabi-v7a/libinject.so   # if you have the 32-bit build
+git add -f ShadowModz/app/src/main/jniLibs/arm64-v8a/libinject.so
+git add -f ShadowModz/app/src/main/jniLibs/armeabi-v7a/libinject.so
+git commit -m "add injector" && git push
+```
+
+`git add -f` is required because `.gitignore` skips `*.so`; once pushed, the CI
+build packs it into the APK (the verify step prints everything it found in
+`jniLibs/`).
+
+Discovery order at runtime (`exec.FindInjector`):
+
+1. `libsmdz_injector.so`   (documented drop-in name)
+2. `libinject.so`
+3. `libcatchmeifyoucan.so`
+4. any other `*.so` whose name contains `inject` or `catch`
+
+Calling convention stays the original one: `injector <pid> <payload_path>`,
+payload `libmasgik.so` in the app's own private dir (no `su` for the no-root
+path) or `/dev/` / `/data/local/tmp/` on the root paths. Without any injector
+the dashboard says `NO INJECTOR .so IN jniLibs - ADD AN INJECTOR .so TO jniLibs/`
+instead of pretending to inject.
 
 ## What changed
 
@@ -371,7 +397,11 @@ the bundled ImGui, so the screenshots cannot drift away from the code.
   Change it in one place: `LoginActivity.KEY_HASH` (SHA-256 of
   `SALT + KEY.toUpperCase()`, salt `SHADOWMODZ::v4::GATE`).
 * Not implemented on purpose: device-ID spoofing and anti-ban / anti-cheat
-  bypass hooks. Those are ban-evasion features, so they are not part of this
-  repo.
+  bypass hooks (including game-side `libil2cpp` bypass patches). Those are
+  ban-evasion features, so they are not part of this repo and are never
+  compiled into the APK.
+* Native libraries you own (your injector, loaders) are packaged as they are -
+  the build does not modify them, and the source tree never needs to see them:
+  they only have to exist as `.so` files in `jniLibs/<abi>/`.
 
 **SHADOW MODZ** — Telegram: <https://t.me/+BBimnHMiSvpiYTBl>

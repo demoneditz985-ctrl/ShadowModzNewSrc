@@ -22,7 +22,7 @@ env:
   GRADLE_VERSION: '8.2'       # must be >= the AGP version in ShadowModz/build.gradle
   NDK_VERSION: '25.2.9519653' # r25b - ndk-build, android-21, both ABIs
   API_LEVEL: '34'
-  RELEASE_TAG: 'v5.0'         # keep in sync with versionName in app/build.gradle
+  RELEASE_TAG: 'v5.1'         # keep in sync with versionName in app/build.gradle
 
 jobs:
   apk:
@@ -110,6 +110,11 @@ jobs:
           SIZE=$(stat -c%s "$APK")
           LIBS=$(unzip -l "$APK" | awk '/lib\// {printf "%s ", $4}')
           ONDISK=$(find app/build -name 'libmasgik.so' 2>/dev/null | tr '\n' ' ')
+          JNILIBS=$(find app/src/main/jniLibs -name '*.so' 2>/dev/null | tr '\n' ' ')
+          echo "jniLibs shipped with this build: ${JNILIBS:-NONE}"
+          if [ -z "$JNILIBS" ]; then
+            echo "::warning title=no injector in jniLibs::the APK contains only libmasgik.so - drop your injector .so into app/src/main/jniLibs/<abi>/ and 'git add -f' it"
+          fi
           SHA=$(sha256sum "$APK" | cut -d' ' -f1)
           echo "APK_NAME=$(basename "$APK")" >> "$GITHUB_ENV"
           echo "APK_SHA=$SHA" >> "$GITHUB_ENV"

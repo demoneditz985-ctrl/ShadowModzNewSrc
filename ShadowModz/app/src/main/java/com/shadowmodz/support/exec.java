@@ -32,10 +32,57 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 
 public class exec {
+    // =====================================================================
+    //  INJECTOR DISCOVERY
+    // ---------------------------------------------------------------------
+    //  The injector library is NOT part of this source drop, so the app must
+    //  not hardcode one file name: whatever is packaged in jniLibs/ is found
+    //  here and used.  Drop your own .so into
+    //
+    //      ShadowModz/app/src/main/jniLibs/<abi>/
+    //
+    //  (and `git add -f` it - .gitignore skips *.so) and it is picked up
+    //  automatically; the CI build packs it into the APK.
+    // =====================================================================
+    static public final String[] INJECTOR_CANDIDATES = {
+        "libsmdz_injector.so",     // documented drop-in name
+        "libinject.so",
+        "libcatchmeifyoucan.so"
+    };
+
+    /** absolute path of the injector that shipped with this build, or null */
+    static public String FindInjector(Context con) {
+        if (con == null) return null;
+        File dir = new File(con.getApplicationInfo().nativeLibraryDir);
+        if (!dir.isDirectory()) return null;
+
+        for (int i = 0; i < INJECTOR_CANDIDATES.length; ++i) {
+            File f = new File(dir, INJECTOR_CANDIDATES[i]);
+            if (f.isFile()) return f.getAbsolutePath();
+        }
+
+        // any other injected/catcher library the user dropped in
+        File[] all = dir.listFiles();
+        if (all != null) {
+            for (int i = 0; i < all.length; ++i) {
+                String n = all[i].getName().toLowerCase(Locale.ENGLISH);
+                if (n.endsWith(".so") && (n.contains("inject") || n.contains("catch")))
+                    return all[i].getAbsolutePath();
+            }
+        }
+        return null;
+    }
+
+    /** shown when nothing was found - tells the user where the file goes */
+    static public String InjectorHint() {
+        return "ADD AN INJECTOR .so TO jniLibs/ (libsmdz_injector.so / libinject.so / libcatchmeifyoucan.so)";
+    }
+
   static public boolean InjectVirtual(String Lib,Context con) {
         try {
             String target = "com.dts.freefireth";
-            String injector = con.getApplicationInfo().nativeLibraryDir + File.separator + "libinject.so";
+            String injector = FindInjector(con);
+            if (injector == null) { lastError = MISSING_INJECTOR; return false; }
             String payload_source = con.getApplicationInfo().nativeLibraryDir + File.separator + Lib;
             String payload_dest = "/dev/"+Lib;
             String context = "u:object_r:system_lib_file:s0";
@@ -69,18 +116,17 @@ public class exec {
     //
     //  Requirements for this path (we can not ship them, they are not part of
     //  this source drop):
-    //    * libinject.so     - the ptrace injector, in jniLibs/
+    //    * an injector .so - libsmdz_injector.so / libinject.so / any *inject*.so
     //    * the game run in the same container as this app
     // =====================================================================
     static public boolean InjectDirect(String Lib, Context con) {
         try {
             String target = "com.dts.freefireth";
             String dir      = con.getApplicationInfo().nativeLibraryDir;
-            String injector = dir + File.separator + "libinject.so";
+            String injector = FindInjector(con);
             String payload  = dir + File.separator + Lib;
 
-            File inj = new File(injector);
-            if (!inj.exists()) { lastError = MISSING_INJECTOR; return false; }
+            if (injector == null) { lastError = MISSING_INJECTOR; return false; }
             File pay = new File(payload);
             if (!pay.exists()) { lastError = MISSING_PAYLOAD; return false; }
 
@@ -113,7 +159,7 @@ public class exec {
     /** why the last attempt failed - shown to the user */
     static public String lastError = "";
 
-    public static final String MISSING_INJECTOR = "MISSING libinject.so";
+    public static final String MISSING_INJECTOR = "NO INJECTOR .so IN jniLibs";
     public static final String MISSING_PAYLOAD  = "MISSING PAYLOAD .so";
     public static final String GAME_NOT_FOUND   = "GAME NOT RUNNING";
     public static final String TIMEOUT          = "INJECTOR TIMED OUT";
@@ -121,7 +167,8 @@ public class exec {
     static public boolean InjectRoot(String Lib,Context con) {
         try {
             String target = "com.dts.freefireth";
-            String injector = con.getApplicationInfo().nativeLibraryDir + File.separator + "libcatchmeifyoucan.so";
+            String injector = FindInjector(con);
+            if (injector == null) { lastError = MISSING_INJECTOR; return false; }
             String payload_source = con.getApplicationInfo().nativeLibraryDir + File.separator + Lib;
             String payload_dest = "/data/local/tmp/"+Lib;
             String context = "u:object_r:system_lib_file:s0";

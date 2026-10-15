@@ -175,6 +175,7 @@ public class MainActivity extends Activity {
             }
 
             String why = exec.lastError;
+            if (exec.MISSING_INJECTOR.equals(why)) why = exec.InjectorHint();
             if (!rooted)
                 return "NO ROOT  •  RUN THE GAME IN A VIRTUAL SPACE WITH THIS APP"
                      + (why.isEmpty() ? "" : "  (" + why + ")");
@@ -210,13 +211,14 @@ public class MainActivity extends Activity {
     private boolean InjectRoot(String Lib) {
         try {
             String target = "com.dts.freefireth";
-            // the injector is NOT part of this source drop - say so instead of
-            // reporting a success that never injected anything
-            if (!new File(getApplicationInfo().nativeLibraryDir + File.separator + "libcatchmeifyoucan.so").exists()) {
+            // the injector is NOT part of this source drop: it is whatever was
+            // packaged in jniLibs/ (see exec.FindInjector). Saying so beats
+            // reporting a success that never injected anything.
+            String injector = exec.FindInjector(this);
+            if (injector == null) {
                 exec.lastError = exec.MISSING_INJECTOR;
                 return false;
             }
-            String injector = this.getApplicationInfo().nativeLibraryDir + File.separator + "libcatchmeifyoucan.so"; // add your injector .so to jniLibs
             String payload_source = this.getApplicationInfo().nativeLibraryDir + File.separator + Lib;
             String payload_dest = "/dev/"+Lib;
             String context = "u:object_r:system_lib_file:s0";
